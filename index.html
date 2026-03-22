@@ -634,9 +634,13 @@ function setSyncStatus(state, msg){
 /* ── API CALLS ── */
 async function apiGet(sheet){
   if(!IS_CONFIGURED) return [];
-  const url = API_URL + '?sheet=' + encodeURIComponent(sheet) + '&action=getAll';
+  const url = API_URL + '?sheet=' + encodeURIComponent(sheet) + '&action=getAll&_=' + Date.now();
   try {
-    const r = await fetch(url); // sin mode ni headers — el browser sigue el redirect solo
+    const r = await fetch(url, {
+      method: 'GET',
+      credentials: 'omit',
+      cache: 'no-store'
+    });
     const txt = await r.text();
     const j = JSON.parse(txt.trim());
     if(j.error) throw new Error(j.error);
@@ -713,7 +717,8 @@ async function syncAll(){
     }
   }catch(e){
     console.error('syncAll error:',e);
-    setSyncStatus('offline','Error de conexión');
+    const msg = e.message || 'Error desconocido';
+    setSyncStatus('offline', msg.length > 30 ? msg.slice(0,30)+'…' : msg);
   }
   syncing=false;
 }
