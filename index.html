@@ -634,11 +634,10 @@ function setSyncStatus(state, msg){
 /* ── API CALLS ── */
 async function apiGet(sheet){
   if(!IS_CONFIGURED) return [];
-  const target = API_URL + '?sheet=' + encodeURIComponent(sheet) + '&action=getAll';
-  // allorigins /raw: sin límite de tamaño, devuelve respuesta directa
-  const url = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(target);
+  // Fetch directo con redirect:follow — funciona con Apps Script "Anyone"
+  const url = API_URL + '?sheet=' + encodeURIComponent(sheet) + '&action=getAll&t=' + Date.now();
   try {
-    const r = await fetch(url);
+    const r = await fetch(url, { redirect: 'follow', credentials: 'omit', mode: 'cors' });
     const txt = await r.text();
     const j = JSON.parse(txt.trim());
     if(j.error) throw new Error(j.error);
@@ -652,14 +651,14 @@ async function apiGet(sheet){
 async function apiPost(payload){
   if(!IS_CONFIGURED) return {ok:false};
   const record = payload.record ? encodeURIComponent(JSON.stringify(payload.record)) : '';
-  let target = API_URL
+  let url = API_URL
     + '?sheet='  + encodeURIComponent(payload.sheet)
-    + '&action=' + encodeURIComponent(payload.action);
-  if(record)     target += '&record=' + record;
-  if(payload.id) target += '&id=' + encodeURIComponent(String(payload.id));
-  const url = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(target);
+    + '&action=' + encodeURIComponent(payload.action)
+    + '&t=' + Date.now();
+  if(record)     url += '&record=' + record;
+  if(payload.id) url += '&id=' + encodeURIComponent(String(payload.id));
   try {
-    const r = await fetch(url);
+    const r = await fetch(url, { redirect: 'follow', credentials: 'omit', mode: 'cors' });
     const txt = await r.text();
     return JSON.parse(txt.trim());
   } catch(e) {
