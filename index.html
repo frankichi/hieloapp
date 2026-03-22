@@ -245,7 +245,7 @@ tbody tr:hover td{background:rgba(255,255,255,0.02)}
   <div class="card">
     <div class="card-title">Lotes registrados</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Lote</th><th>Fecha</th><th>Kg prod.</th><th>Kg emp.</th><th>Merma</th><th>Merma%</th><th>Bolsas 5kg</th><th>kWh</th><th></th></tr></thead>
+      <thead><tr><th>Lote</th><th>Fecha</th><th>Kg prod.</th><th>Kg emp.</th><th>Merma kg</th><th>Merma%</th><th>Bolsas 5kg</th><th>kWh</th><th>Litros agua</th><th>Observación</th><th></th></tr></thead>
       <tbody id="tbody-prod"></tbody>
     </table></div>
   </div>
@@ -316,7 +316,7 @@ tbody tr:hover td{background:rgba(255,255,255,0.02)}
   <div class="kpi-grid" id="cli-kpis"></div>
   <div class="card"><div class="card-title">Directorio</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Nombre</th><th>Tipo</th><th>Canal</th><th>Zona</th><th>Teléfono</th><th class="num">Deuda (S/)</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Nombre</th><th>Tipo</th><th>Canal</th><th>Zona</th><th>Teléfono</th><th>Dirección</th><th class="num">Deuda (S/)</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tbody-cli"></tbody>
     </table></div>
   </div>
@@ -926,12 +926,20 @@ async function saveCobro(){
   await withSaving('btn-save-cobro', async()=>{
     const clienteId=document.getElementById('f-co-cli').value;
     const monto=parseFloat(document.getElementById('f-co-monto').value)||0;
-    for(const c of DB.cobranzas.filter(x=>x.clienteId===clienteId&&!x.pagado)){
+    const _ep = v=>v===true||v==='true'||v==='TRUE'||v===1||v==='1';
+    for(const c of DB.cobranzas.filter(x=>x.clienteId===clienteId&&!_ep(x.pagado))){
       c.pagado=true;
-      await apiPost({sheet:'cobranzas',action:'update',id:c.id,record:{pagado:true}});
+      const recC = {id:c.id,clienteId:c.clienteId,ventaId:c.ventaId,
+        monto:c.monto,fechaVenta:c.fechaVenta,fechaVenc:c.fechaVenc,pagado:true};
+      await apiPost({sheet:'cobranzas',action:'update',id:c.id,record:recC});
     }
     const cl=DB.clientes.find(c=>c.id===clienteId);
-    if(cl){ cl.deuda=Math.max(0,cl.deuda-monto); await apiPost({sheet:'clientes',action:'update',id:cl.id,record:{deuda:cl.deuda}}); }
+    if(cl){
+      cl.deuda=Math.max(0,Number(cl.deuda)-monto);
+      const recCl={id:cl.id,nombre:cl.nombre,tipo:cl.tipo,canal:cl.canal,
+        zona:cl.zona,tel:cl.tel,dir:cl.dir,comprasMes:cl.comprasMes,deuda:cl.deuda,activo:cl.activo};
+      await apiPost({sheet:'clientes',action:'update',id:cl.id,record:recCl});
+    }
     closeModal('modal-cobro');
     renderCobranzas();
     setTimeout(async()=>{ await syncAll(); renderCobranzas(); }, 5000);
@@ -941,10 +949,25 @@ async function saveCobro(){
 async function marcarPagado(id){
   const c=DB.cobranzas.find(x=>x.id===id); if(!c)return;
   c.pagado=true;
-  await apiPost({sheet:'cobranzas',action:'update',id,record:{pagado:true}});
+  // Enviar registro completo para que Apps Script pueda actualizar la fila
+  const recCompleto = {
+    id: c.id, clienteId: c.clienteId, ventaId: c.ventaId,
+    monto: c.monto, fechaVenta: c.fechaVenta, fechaVenc: c.fechaVenc,
+    pagado: true
+  };
+  await apiPost({sheet:'cobranzas', action:'update', id: id, record: recCompleto});
   const cl=DB.clientes.find(x=>x.id===c.clienteId);
-  if(cl){ cl.deuda=Math.max(0,cl.deuda-c.monto); await apiPost({sheet:'clientes',action:'update',id:cl.id,record:{deuda:cl.deuda}}); }
+  if(cl){
+    cl.deuda=Math.max(0, Number(cl.deuda)-Number(c.monto));
+    const clCompleto = {
+      id:cl.id, nombre:cl.nombre, tipo:cl.tipo, canal:cl.canal,
+      zona:cl.zona, tel:cl.tel, dir:cl.dir,
+      comprasMes:cl.comprasMes, deuda:cl.deuda, activo:cl.activo
+    };
+    await apiPost({sheet:'clientes', action:'update', id:cl.id, record:clCompleto});
+  }
   renderCobranzas();
+  setTimeout(async()=>{ await syncAll(); renderCobranzas(); }, 5000);
 }
 
 async function deleteRec(sheet,id,renderFn){
@@ -989,7 +1012,7 @@ function renderDashboard(){
   if(deuda>0) al.innerHTML+=`<div class="alert alert-amber"><span>⚠</span> C×C pendiente: ${fmtS(deuda)}. Activar cobranza.</div>`;
   if(!al.innerHTML) al.innerHTML=`<div class="alert alert-green"><span>✓</span> Todos los indicadores normales.</div>`;
   if(!IS_CONFIGURED) al.innerHTML=`<div class="alert alert-amber"><span>⚠</span> API no configurada. Los datos son de ejemplo. Configura tu URL de Apps Script.</div>`+al.innerHTML;
-  document.getElementById('dash-actividad').innerHTML=DB.ventas.slice(-5).reverse().map(v=>`<tr><td>${v.fecha}</td><td>${getC(v.clienteId).nombre}</td><td class="num"><span class="badge bg">${fmtS(Number(v.total))}</span></td></tr>`).join('');
+  document.getElementById('dash-actividad').innerHTML=DB.ventas.slice(-5).reverse().map(v=>`<tr><td>${v.fecha?String(v.fecha).split('T')[0]:''}</td><td>${getC(v.clienteId).nombre}</td><td class="num"><span class="badge bg">${fmtS(Number(v.total))}</span></td></tr>`).join('');
 }
 
 function renderProduccion(){
@@ -1006,11 +1029,23 @@ function renderProduccion(){
   `;
   document.getElementById('tbody-prod').innerHTML=pr.slice().reverse().map(r=>{
     const mp=((Number(r.kgProd)-Number(r.kgEmp))/Number(r.kgProd)*100).toFixed(1);
-    return `<tr><td class="mono">${r.lote}</td><td>${r.fecha}</td><td class="num">${r.kgProd}</td><td class="num">${r.kgEmp}</td>
+    const fechaFmt = r.fecha ? String(r.fecha).split('T')[0] : '';
+    return `<tr>
+      <td class="mono">${r.lote}</td>
+      <td>${fechaFmt}</td>
+      <td class="num">${r.kgProd}</td>
+      <td class="num">${r.kgEmp}</td>
       <td class="num">${Number(r.kgProd)-Number(r.kgEmp)}</td>
       <td class="num"><span class="badge ${mp<=8?'bg':'br'}">${mp}%</span></td>
-      <td class="num">${Math.floor(Number(r.kgEmp)/5)}</td><td class="num">${r.kwh}</td>
-      <td><button class="btn-ghost btn-sm" onclick="deleteRec('produccion','${r.id}',renderProduccion)">✕</button></td></tr>`;
+      <td class="num">${Math.floor(Number(r.kgEmp)/5)}</td>
+      <td class="num">${r.kwh}</td>
+      <td class="num">${r.agua||''}</td>
+      <td style="font-size:12px;color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.obs||''}">${r.obs||'—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-ghost btn-sm" onclick="openEditProd('${r.id}')" style="margin-right:4px">✎</button>
+        <button class="btn-ghost btn-sm" onclick="deleteRec('produccion','${r.id}',renderProduccion)">✕</button>
+      </td>
+    </tr>`;
   }).join('');
   const last=pr.slice(-10);
   mkChart('c-prod',{type:'bar',data:{labels:last.map(r=>r.lote),datasets:[{label:'Kg prod.',data:last.map(r=>r.kgProd),backgroundColor:'rgba(59,130,246,0.5)',borderRadius:3},{label:'Kg emp.',data:last.map(r=>r.kgEmp),backgroundColor:'rgba(34,197,94,0.7)',borderRadius:3}]},options:{...cOpts('kg'),plugins:{legend:{labels:{color:'#8b949e',font:{size:11}}}}}});
@@ -1027,14 +1062,19 @@ function renderVentas(){
     <div class="kpi-card amber"><div class="kpi-label">Por cobrar</div><div class="kpi-val amber">${fmtS(pend,2)}</div></div>
     <div class="kpi-card cyan"><div class="kpi-label">Ticket prom.</div><div class="kpi-val cyan">${fmtS(tv/Math.max(1,DB.ventas.length),2)}</div></div>
   `;
-  document.getElementById('tbody-ventas').innerHTML=DB.ventas.slice().reverse().map(v=>`<tr>
-    <td class="mono">${v.id}</td><td>${v.fecha}</td><td>${getC(v.clienteId).nombre}</td>
+  document.getElementById('tbody-ventas').innerHTML=DB.ventas.slice().reverse().map(v=>{
+  const fechaV = v.fecha ? String(v.fecha).split('T')[0] : '';
+  return `<tr>
+    <td class="mono">${v.id}</td><td>${fechaV}</td><td>${getC(v.clienteId).nombre}</td>
     <td><span class="badge bb">${v.canal}</span></td><td>${v.producto}</td>
     <td class="num">${v.qty}</td><td class="num">${fmtS(Number(v.precio),2)}</td>
     <td class="num">${fmtS(Number(v.total),2)}</td><td>${v.pago}</td>
     <td><span class="badge ${v.estado==='Pagado'?'bg':'ba'}">${v.estado}</span></td>
-    <td><button class="btn-ghost btn-sm" onclick="deleteRec('ventas','${v.id}',renderVentas)">✕</button></td>
-  </tr>`).join('');
+    <td style="white-space:nowrap">
+      <button class="btn-ghost btn-sm" onclick="openEditVenta('${v.id}')" style="margin-right:4px">✎</button>
+      <button class="btn-ghost btn-sm" onclick="deleteRec('ventas','${v.id}',renderVentas)">✕</button>
+    </td>
+  </tr>`;}).join('');
   const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const gm=new Array(12).fill(0);
   DB.ventas.forEach(v=>{gm[new Date(v.fecha).getMonth()]+=Number(v.total);});
@@ -1055,13 +1095,18 @@ function renderEntregas(){
     <div class="kpi-card green"><div class="kpi-label">A tiempo</div><div class="kpi-val green">${ok}</div></div>
     <div class="kpi-card red"><div class="kpi-label">Tardías</div><div class="kpi-val ${es.length-ok>0?'red':'green'}">${es.length-ok}</div></div>
   `;
-  document.getElementById('tbody-ent').innerHTML=es.slice().reverse().map(e=>`<tr>
-    <td class="mono">${e.id}</td><td>${e.fecha}</td><td>${getC(e.clienteId).nombre}</td><td>${e.ruta}</td>
+  document.getElementById('tbody-ent').innerHTML=es.slice().reverse().map(e=>{
+  const fechaE = e.fecha ? String(e.fecha).split('T')[0] : '';
+  return `<tr>
+    <td class="mono">${e.id}</td><td>${fechaE}</td><td>${getC(e.clienteId).nombre}</td><td>${e.ruta}</td>
     <td class="num">${e.bolsas}</td><td class="mono">${e.prog}</td><td class="mono">${e.real}</td>
     <td><span class="badge ${e.estado==='Entregado OK'?'bg':e.estado==='Tardío'?'ba':'br'}">${e.estado}</span></td>
     <td class="num" style="color:${Number(e.temp)<=-5?'#22c55e':'#ef4444'}">${e.temp}°C</td>
-    <td><button class="btn-ghost btn-sm" onclick="deleteRec('entregas','${e.id}',renderEntregas)">✕</button></td>
-  </tr>`).join('');
+    <td style="white-space:nowrap">
+      <button class="btn-ghost btn-sm" onclick="openEditEntrega('${e.id}')" style="margin-right:4px">✎</button>
+      <button class="btn-ghost btn-sm" onclick="deleteRec('entregas','${e.id}',renderEntregas)">✕</button>
+    </td>
+  </tr>`;}).join('');
   const rutas=['Ruta A — Norte','Ruta B — Centro','Ruta C — Sur'];
   const otifR=rutas.map(r=>{const re=es.filter(e=>e.ruta===r);return re.length?re.filter(e=>e.estado==='Entregado OK').length/re.length*100:0;});
   mkChart('c-otif',{type:'bar',data:{labels:['Norte','Centro','Sur'],datasets:[{label:'OTIF %',data:otifR.map(v=>+v.toFixed(0)),backgroundColor:otifR.map(v=>v>=90?'rgba(34,197,94,0.7)':'rgba(245,158,11,0.7)'),borderRadius:4}]},options:{...cOpts('%'),scales:{y:{min:0,max:100,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#8b949e',callback:v=>v+'%'}},x:{grid:{display:false},ticks:{color:'#8b949e'}}},plugins:{legend:{display:false}}}});
@@ -1077,12 +1122,16 @@ function renderClientes(){
     <div class="kpi-card green"><div class="kpi-label">Con compras</div><div class="kpi-val green">${DB.clientes.filter(c=>Number(c.comprasMes)>0).length}</div></div>
   `;
   document.getElementById('tbody-cli').innerHTML=cls.map(c=>`<tr>
-    <td><strong>${c.nombre}</strong></td><td>${c.tipo}</td>
+    <td><strong title="${c.dir||''}">${c.nombre}</strong></td><td>${c.tipo}</td>
     <td><span class="badge bb">${c.canal}</span></td><td>${c.zona}</td>
     <td class="mono">${c.tel}</td>
+    <td style="font-size:12px;color:var(--text2);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.dir||'—'}</td>
     <td class="num" style="color:${Number(c.deuda)>0?'#f59e0b':'#22c55e'}">${fmtS(Number(c.deuda),2)}</td>
     <td><span class="badge ${c.activo===true||c.activo==='true'?'bg':'br'}">${c.activo===true||c.activo==='true'?'Activo':'Inactivo'}</span></td>
-    <td><button class="btn-ghost btn-sm" onclick="deleteRec('clientes','${c.id}',renderClientes)">✕</button></td>
+    <td style="white-space:nowrap">
+      <button class="btn-ghost btn-sm" onclick="openEditCliente('${c.id}')" style="margin-right:4px">✎</button>
+      <button class="btn-ghost btn-sm" onclick="deleteRec('clientes','${c.id}',renderClientes)">✕</button>
+    </td>
   </tr>`).join('');
 }
 
@@ -1095,12 +1144,17 @@ function renderGastos(){
     <div class="kpi-card amber"><div class="kpi-label">Este mes</div><div class="kpi-val amber">${fmtS(gm,2)}</div></div>
     <div class="kpi-card blue"><div class="kpi-label">Registros</div><div class="kpi-val blue">${DB.gastos.length}</div></div>
   `;
-  document.getElementById('tbody-gastos').innerHTML=DB.gastos.slice().reverse().map(g=>`<tr>
-    <td>${g.fecha}</td><td><span class="badge bb">${g.cat}</span></td>
+  document.getElementById('tbody-gastos').innerHTML=DB.gastos.slice().reverse().map(g=>{
+  const fechaG = g.fecha ? String(g.fecha).split('T')[0] : '';
+  return `<tr>
+    <td>${fechaG}</td><td><span class="badge bb">${g.cat}</span></td>
     <td>${g.concepto}</td><td class="num">${fmtS(Number(g.monto),2)}</td>
     <td class="mono" style="font-size:11px">${g.comp}</td>
-    <td><button class="btn-ghost btn-sm" onclick="deleteRec('gastos','${g.id}',renderGastos)">✕</button></td>
-  </tr>`).join('');
+    <td style="white-space:nowrap">
+      <button class="btn-ghost btn-sm" onclick="openEditGasto('${g.id}')" style="margin-right:4px">✎</button>
+      <button class="btn-ghost btn-sm" onclick="deleteRec('gastos','${g.id}',renderGastos)">✕</button>
+    </td>
+  </tr>`;}).join('');
   const cm={};DB.gastos.forEach(g=>{cm[g.cat]=(cm[g.cat]||0)+Number(g.monto);});
   mkChart('c-gcat',{type:'doughnut',data:{labels:Object.keys(cm),datasets:[{data:Object.values(cm),backgroundColor:['#3b82f6','#06b6d4','#f59e0b','#22c55e','#8b5cf6','#ef4444','#ec4899'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#8b949e',font:{size:10},boxWidth:8,padding:6}}}}});
   const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -1109,20 +1163,24 @@ function renderGastos(){
 }
 
 function renderCobranzas(){
-  const pend=DB.cobranzas.filter(c=>!c.pagado&&c.pagado!=='true');
+  if(!window.esPagado) window.esPagado = v => v===true||v==='true'||v==='TRUE'||v===1||v==='1';
+  const esPagado = window.esPagado;
+  const pend=DB.cobranzas.filter(c=>!esPagado(c.pagado));
   const tP=pend.reduce((a,c)=>a+Number(c.monto),0);
   const hoy=new Date();
   document.getElementById('cobro-kpis').innerHTML=`
     <div class="kpi-card amber"><div class="kpi-label">Por cobrar</div><div class="kpi-val amber">${fmtS(tP,2)}</div><div class="kpi-sub">${pend.length} facturas</div></div>
     <div class="kpi-card red"><div class="kpi-label">Vencidas</div><div class="kpi-val red">${pend.filter(c=>new Date(c.fechaVenc)<hoy).length}</div></div>
-    <div class="kpi-card green"><div class="kpi-label">Cobrado hist.</div><div class="kpi-val green">${fmtS(DB.cobranzas.filter(c=>c.pagado===true||c.pagado==='true').reduce((a,c)=>a+Number(c.monto),0),2)}</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Cobrado hist.</div><div class="kpi-val green">${fmtS(DB.cobranzas.filter(c=>{const v=c.pagado;return v===true||v==='true'||v==='TRUE'||v===1||v==='1';}).reduce((a,c)=>a+Number(c.monto),0),2)}</div></div>
   `;
   document.getElementById('tbody-cobros').innerHTML=pend.map(c=>{
     const cl=getC(c.clienteId);
     const dias=Math.ceil((hoy-new Date(c.fechaVenc))/86400000);
+    const fvta = c.fechaVenta ? String(c.fechaVenta).split('T')[0] : '';
+    const fvnc = c.fechaVenc  ? String(c.fechaVenc).split('T')[0]  : '';
     return `<tr>
       <td><strong>${cl.nombre}</strong></td><td class="mono">${c.ventaId}</td>
-      <td>${c.fechaVenta}</td><td>${c.fechaVenc}</td>
+      <td>${fvta}</td><td>${fvnc}</td>
       <td class="num">${fmtS(Number(c.monto),2)}</td>
       <td class="num"><span class="badge ${dias>0?'br':'ba'}">${dias>0?'+'+dias+' días':'Próximo'}</span></td>
       <td><span class="badge ba">Pendiente</span></td>
@@ -1219,6 +1277,365 @@ if(!IS_CONFIGURED){
   syncAll();           // traer datos de Sheets en background
   setInterval(()=>{ if(!syncing) syncAll(); }, 120000); // auto-sync cada 2 min
 }
+
+/* ══════════════════════════════════════════
+   FUNCIONES DE EDICIÓN
+══════════════════════════════════════════ */
+function selVal(id, val){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const opts = Array.from(el.options);
+  const match = opts.find(o => o.value === String(val) || o.text === String(val));
+  if(match) el.value = match.value;
+}
+
+function fmtDateInput(val){
+  if(!val) return '';
+  return String(val).split('T')[0];
+}
+
+/* ── CLIENTES ── */
+function openEditCliente(id){
+  const c = DB.clientes.find(x=>x.id===id); if(!c) return;
+  document.getElementById('fe-c-id').value    = c.id;
+  document.getElementById('fe-c-nombre').value = c.nombre||'';
+  document.getElementById('fe-c-tel').value   = c.tel||'';
+  document.getElementById('fe-c-dir').value   = c.dir||'';
+  document.getElementById('fe-c-deuda').value = c.deuda||0;
+  selVal('fe-c-tipo',   c.tipo);
+  selVal('fe-c-canal',  c.canal);
+  selVal('fe-c-zona',   c.zona);
+  selVal('fe-c-activo', String(c.activo));
+  document.getElementById('modal-edit-cliente').classList.add('open');
+}
+
+async function updateCliente(){
+  await withSaving('btn-update-cli', async()=>{
+    const id = document.getElementById('fe-c-id').value;
+    const c  = DB.clientes.find(x=>x.id===id); if(!c) return;
+    c.nombre     = document.getElementById('fe-c-nombre').value;
+    c.tipo       = document.getElementById('fe-c-tipo').value;
+    c.canal      = document.getElementById('fe-c-canal').value;
+    c.zona       = document.getElementById('fe-c-zona').value;
+    c.tel        = document.getElementById('fe-c-tel').value;
+    c.dir        = document.getElementById('fe-c-dir').value;
+    c.deuda      = parseFloat(document.getElementById('fe-c-deuda').value)||0;
+    c.activo     = document.getElementById('fe-c-activo').value === 'true';
+    await apiPost({sheet:'clientes', action:'update', id, record:{...c}});
+    closeModal('modal-edit-cliente');
+    renderClientes();
+    setTimeout(async()=>{ await syncAll(); renderClientes(); }, 5000);
+  });
+}
+
+/* ── PRODUCCIÓN ── */
+function openEditProd(id){
+  const r = DB.produccion.find(x=>x.id===id); if(!r) return;
+  document.getElementById('fe-pd-id').value    = r.id;
+  document.getElementById('fe-pd-fecha').value = fmtDateInput(r.fecha);
+  document.getElementById('fe-pd-lote').value  = r.lote||'';
+  document.getElementById('fe-pd-kg').value    = r.kgProd||0;
+  document.getElementById('fe-pd-emp').value   = r.kgEmp||0;
+  document.getElementById('fe-pd-kwh').value   = r.kwh||0;
+  document.getElementById('fe-pd-agua').value  = r.agua||0;
+  document.getElementById('fe-pd-obs').value   = r.obs||'';
+  document.getElementById('modal-edit-prod').classList.add('open');
+}
+
+async function updateProd(){
+  await withSaving('btn-update-prod', async()=>{
+    const id = document.getElementById('fe-pd-id').value;
+    const r  = DB.produccion.find(x=>x.id===id); if(!r) return;
+    r.fecha  = document.getElementById('fe-pd-fecha').value;
+    r.lote   = document.getElementById('fe-pd-lote').value;
+    r.kgProd = parseFloat(document.getElementById('fe-pd-kg').value)||0;
+    r.kgEmp  = parseFloat(document.getElementById('fe-pd-emp').value)||0;
+    r.kwh    = parseFloat(document.getElementById('fe-pd-kwh').value)||0;
+    r.agua   = parseFloat(document.getElementById('fe-pd-agua').value)||0;
+    r.obs    = document.getElementById('fe-pd-obs').value;
+    await apiPost({sheet:'produccion', action:'update', id, record:{...r}});
+    closeModal('modal-edit-prod');
+    renderProduccion();
+    setTimeout(async()=>{ await syncAll(); renderProduccion(); }, 5000);
+  });
+}
+
+/* ── VENTAS ── */
+function calcTotalEdit(){
+  const q = parseFloat(document.getElementById('fe-v-qty').value)||0;
+  const p = parseFloat(document.getElementById('fe-v-precio').value)||0;
+  document.getElementById('fe-v-total').textContent = 'S/ '+(q*p).toFixed(2);
+}
+
+function openEditVenta(id){
+  const v = DB.ventas.find(x=>x.id===id); if(!v) return;
+  document.getElementById('fe-v-id').value     = v.id;
+  document.getElementById('fe-v-fecha').value  = fmtDateInput(v.fecha);
+  document.getElementById('fe-v-qty').value    = v.qty||0;
+  document.getElementById('fe-v-precio').value = v.precio||0;
+  document.getElementById('fe-v-total').textContent = 'S/ '+(Number(v.qty)*Number(v.precio)).toFixed(2);
+  // Poblar select clientes
+  const sel = document.getElementById('fe-v-cli');
+  sel.innerHTML = DB.clientes.map(c=>`<option value="${c.id}"${c.id===v.clienteId?' selected':''}>${c.nombre}</option>`).join('');
+  selVal('fe-v-prod',    v.producto);
+  selVal('fe-v-canal',   v.canal);
+  selVal('fe-v-pago',    v.pago);
+  selVal('fe-v-estado',  v.estado);
+  document.getElementById('modal-edit-venta').classList.add('open');
+}
+
+async function updateVenta(){
+  await withSaving('btn-update-venta', async()=>{
+    const id = document.getElementById('fe-v-id').value;
+    const v  = DB.ventas.find(x=>x.id===id); if(!v) return;
+    v.fecha     = document.getElementById('fe-v-fecha').value;
+    v.clienteId = document.getElementById('fe-v-cli').value;
+    v.producto  = document.getElementById('fe-v-prod').value;
+    v.canal     = document.getElementById('fe-v-canal').value;
+    v.qty       = parseInt(document.getElementById('fe-v-qty').value)||0;
+    v.precio    = parseFloat(document.getElementById('fe-v-precio').value)||0;
+    v.total     = v.qty * v.precio;
+    v.pago      = document.getElementById('fe-v-pago').value;
+    v.estado    = document.getElementById('fe-v-estado').value;
+    await apiPost({sheet:'ventas', action:'update', id, record:{...v}});
+    closeModal('modal-edit-venta');
+    renderVentas();
+    setTimeout(async()=>{ await syncAll(); renderVentas(); }, 5000);
+  });
+}
+
+/* ── ENTREGAS ── */
+function openEditEntrega(id){
+  const e = DB.entregas.find(x=>x.id===id); if(!e) return;
+  document.getElementById('fe-e-id').value      = e.id;
+  document.getElementById('fe-e-fecha').value   = fmtDateInput(e.fecha);
+  document.getElementById('fe-e-bolsas').value  = e.bolsas||0;
+  document.getElementById('fe-e-prog').value    = e.prog||'';
+  document.getElementById('fe-e-real').value    = e.real||'';
+  document.getElementById('fe-e-temp').value    = e.temp||0;
+  const sel = document.getElementById('fe-e-cli');
+  sel.innerHTML = DB.clientes.map(c=>`<option value="${c.id}"${c.id===e.clienteId?' selected':''}>${c.nombre}</option>`).join('');
+  selVal('fe-e-ruta',   e.ruta);
+  selVal('fe-e-estado', e.estado);
+  document.getElementById('modal-edit-entrega').classList.add('open');
+}
+
+async function updateEntrega(){
+  await withSaving('btn-update-ent', async()=>{
+    const id = document.getElementById('fe-e-id').value;
+    const e  = DB.entregas.find(x=>x.id===id); if(!e) return;
+    e.fecha     = document.getElementById('fe-e-fecha').value;
+    e.clienteId = document.getElementById('fe-e-cli').value;
+    e.ruta      = document.getElementById('fe-e-ruta').value;
+    e.bolsas    = parseInt(document.getElementById('fe-e-bolsas').value)||0;
+    e.prog      = document.getElementById('fe-e-prog').value;
+    e.real      = document.getElementById('fe-e-real').value;
+    e.temp      = parseFloat(document.getElementById('fe-e-temp').value)||0;
+    e.estado    = document.getElementById('fe-e-estado').value;
+    await apiPost({sheet:'entregas', action:'update', id, record:{...e}});
+    closeModal('modal-edit-entrega');
+    renderEntregas();
+    setTimeout(async()=>{ await syncAll(); renderEntregas(); }, 5000);
+  });
+}
+
+/* ── GASTOS ── */
+function openEditGasto(id){
+  const g = DB.gastos.find(x=>x.id===id); if(!g) return;
+  document.getElementById('fe-g-id').value       = g.id;
+  document.getElementById('fe-g-fecha').value    = fmtDateInput(g.fecha);
+  document.getElementById('fe-g-concepto').value = g.concepto||'';
+  document.getElementById('fe-g-monto').value    = g.monto||0;
+  document.getElementById('fe-g-comp').value     = g.comp||'';
+  selVal('fe-g-cat', g.cat);
+  document.getElementById('modal-edit-gasto').classList.add('open');
+}
+
+async function updateGasto(){
+  await withSaving('btn-update-gasto', async()=>{
+    const id = document.getElementById('fe-g-id').value;
+    const g  = DB.gastos.find(x=>x.id===id); if(!g) return;
+    g.fecha    = document.getElementById('fe-g-fecha').value;
+    g.cat      = document.getElementById('fe-g-cat').value;
+    g.concepto = document.getElementById('fe-g-concepto').value;
+    g.monto    = parseFloat(document.getElementById('fe-g-monto').value)||0;
+    g.comp     = document.getElementById('fe-g-comp').value;
+    await apiPost({sheet:'gastos', action:'update', id, record:{...g}});
+    closeModal('modal-edit-gasto');
+    renderGastos();
+    setTimeout(async()=>{ await syncAll(); renderGastos(); }, 5000);
+  });
+}
+
 </script>
+
+<!-- ══ MODALES DE EDICIÓN ══ -->
+<div class="modal-overlay" id="modal-edit-cliente">
+  <div class="modal"><div class="modal-title">Editar cliente</div>
+    <input type="hidden" id="fe-c-id">
+    <div class="form-row"><label class="form-label">Nombre / Razón social</label><input type="text" id="fe-c-nombre" class="form-input"></div>
+    <div class="form-row-2">
+      <div><label class="form-label">Tipo</label>
+        <select id="fe-c-tipo" class="form-input">
+          <option>Cevichería</option><option>Restaurante</option><option>Pollería</option><option>Bodega</option>
+          <option>Minimarket</option><option>Mercado</option><option>Evento</option><option>Panadería</option>
+        </select>
+      </div>
+      <div><label class="form-label">Canal</label>
+        <select id="fe-c-canal" class="form-input">
+          <option>HORECA</option><option>Retail</option><option>Industrial</option><option>Eventos</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Zona</label>
+        <select id="fe-c-zona" class="form-input">
+          <option>Norte Los Olivos</option><option>Centro Los Olivos</option><option>Sur Los Olivos</option><option>Fuera de zona</option>
+        </select>
+      </div>
+      <div><label class="form-label">Teléfono</label><input type="text" id="fe-c-tel" class="form-input"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Dirección</label><input type="text" id="fe-c-dir" class="form-input"></div>
+    <div class="form-row-2">
+      <div><label class="form-label">Deuda (S/)</label><input type="number" id="fe-c-deuda" class="form-input"></div>
+      <div><label class="form-label">Estado</label>
+        <select id="fe-c-activo" class="form-input"><option value="true">Activo</option><option value="false">Inactivo</option></select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('modal-edit-cliente')">Cancelar</button>
+      <button class="btn-primary" id="btn-update-cli" onclick="updateCliente()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-edit-prod">
+  <div class="modal"><div class="modal-title">Editar lote de producción</div>
+    <input type="hidden" id="fe-pd-id">
+    <div class="form-row-2">
+      <div><label class="form-label">Fecha</label><input type="date" id="fe-pd-fecha" class="form-input"></div>
+      <div><label class="form-label">Nro. Lote</label><input type="text" id="fe-pd-lote" class="form-input"></div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Kg producidos</label><input type="number" id="fe-pd-kg" class="form-input"></div>
+      <div><label class="form-label">Kg empacados</label><input type="number" id="fe-pd-emp" class="form-input"></div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">kWh consumidos</label><input type="number" id="fe-pd-kwh" class="form-input"></div>
+      <div><label class="form-label">Litros agua</label><input type="number" id="fe-pd-agua" class="form-input"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Observaciones</label><input type="text" id="fe-pd-obs" class="form-input"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('modal-edit-prod')">Cancelar</button>
+      <button class="btn-primary" id="btn-update-prod" onclick="updateProd()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-edit-venta">
+  <div class="modal"><div class="modal-title">Editar venta</div>
+    <input type="hidden" id="fe-v-id">
+    <div class="form-row-2">
+      <div><label class="form-label">Fecha</label><input type="date" id="fe-v-fecha" class="form-input"></div>
+      <div><label class="form-label">Cliente</label><select id="fe-v-cli" class="form-input"></select></div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Producto</label>
+        <select id="fe-v-prod" class="form-input">
+          <option value="Bolsa 2kg">Bolsa 2 kg</option>
+          <option value="Bolsa 5kg">Bolsa 5 kg</option>
+          <option value="Bolsa 10kg">Bolsa 10 kg</option>
+        </select>
+      </div>
+      <div><label class="form-label">Canal</label>
+        <select id="fe-v-canal" class="form-input">
+          <option>Cevichería</option><option>Restaurante</option><option>Bodega</option>
+          <option>Minimarket</option><option>Mercado</option><option>Evento</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Cantidad</label><input type="number" id="fe-v-qty" class="form-input" oninput="calcTotalEdit()"></div>
+      <div><label class="form-label">Precio unitario (S/)</label><input type="number" id="fe-v-precio" class="form-input" oninput="calcTotalEdit()"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Total: <strong id="fe-v-total" style="color:var(--green)">S/ 0.00</strong></label></div>
+    <div class="form-row-2">
+      <div><label class="form-label">Método de pago</label>
+        <select id="fe-v-pago" class="form-input">
+          <option>Efectivo</option><option>Yape</option><option>Plin</option><option>Transferencia</option><option>Crédito 7 días</option>
+        </select>
+      </div>
+      <div><label class="form-label">Estado</label>
+        <select id="fe-v-estado" class="form-input">
+          <option>Pagado</option><option>Pendiente</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('modal-edit-venta')">Cancelar</button>
+      <button class="btn-primary" id="btn-update-venta" onclick="updateVenta()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-edit-entrega">
+  <div class="modal"><div class="modal-title">Editar entrega</div>
+    <input type="hidden" id="fe-e-id">
+    <div class="form-row-2">
+      <div><label class="form-label">Fecha</label><input type="date" id="fe-e-fecha" class="form-input"></div>
+      <div><label class="form-label">Cliente</label><select id="fe-e-cli" class="form-input"></select></div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Ruta</label>
+        <select id="fe-e-ruta" class="form-input">
+          <option>Ruta A — Norte</option><option>Ruta B — Centro</option><option>Ruta C — Sur</option>
+        </select>
+      </div>
+      <div><label class="form-label">Bolsas entregadas</label><input type="number" id="fe-e-bolsas" class="form-input"></div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Hora programada</label><input type="text" id="fe-e-prog" class="form-input"></div>
+      <div><label class="form-label">Hora real</label><input type="text" id="fe-e-real" class="form-input"></div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Temp. llegada (°C)</label><input type="number" id="fe-e-temp" class="form-input"></div>
+      <div><label class="form-label">Estado</label>
+        <select id="fe-e-estado" class="form-input">
+          <option>Entregado OK</option><option>Tardío</option><option>Parcial</option><option>Fallido</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('modal-edit-entrega')">Cancelar</button>
+      <button class="btn-primary" id="btn-update-ent" onclick="updateEntrega()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-edit-gasto">
+  <div class="modal"><div class="modal-title">Editar gasto</div>
+    <input type="hidden" id="fe-g-id">
+    <div class="form-row-2">
+      <div><label class="form-label">Fecha</label><input type="date" id="fe-g-fecha" class="form-input"></div>
+      <div><label class="form-label">Categoría</label>
+        <select id="fe-g-cat" class="form-input">
+          <option>Energía eléctrica</option><option>Agua SEDAPAL</option><option>Combustible</option>
+          <option>Bolsas / Embalaje</option><option>Mantenimiento</option><option>Transporte</option>
+          <option>Licencias / Legal</option><option>Otros</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row"><label class="form-label">Concepto</label><input type="text" id="fe-g-concepto" class="form-input"></div>
+    <div class="form-row-2">
+      <div><label class="form-label">Monto (S/)</label><input type="number" id="fe-g-monto" class="form-input"></div>
+      <div><label class="form-label">Comprobante</label><input type="text" id="fe-g-comp" class="form-input"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('modal-edit-gasto')">Cancelar</button>
+      <button class="btn-primary" id="btn-update-gasto" onclick="updateGasto()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
