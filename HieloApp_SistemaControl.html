@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HieloApp — Sistema de Control · Los Olivos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg2: #161b22;
+  --bg3: #1c2330;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.14);
+  --text: #e6edf3;
+  --text2: #8b949e;
+  --text3: #484f58;
+  --blue: #3b82f6;
+  --blue-dim: rgba(59,130,246,0.12);
+  --blue-glow: rgba(59,130,246,0.25);
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,0.12);
+  --amber: #f59e0b;
+  --amber-dim: rgba(245,158,11,0.12);
+  --red: #ef4444;
+  --red-dim: rgba(239,68,68,0.12);
+  --cyan: #06b6d4;
+  --cyan-dim: rgba(6,182,212,0.1);
+  --r: 8px;
+  --r2: 12px;
+  --font: 'DM Sans', sans-serif;
+  --mono: 'DM Mono', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── SIDEBAR ── */
+.layout { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 220px;
+  min-width: 220px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.sidebar-logo {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.logo-icon {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, var(--blue), var(--cyan));
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; margin-bottom: 8px;
+}
+.logo-name { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+.logo-sub { font-size: 11px; color: var(--text2); margin-top: 1px; }
+.nav-section { padding: 12px 12px 4px; }
+.nav-label { font-size: 10px; font-weight: 600; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; padding: 0 8px 6px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text2);
+  transition: all .15s;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+}
+.nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+.nav-item.active {
+  background: var(--blue-dim);
+  color: var(--blue);
+  border-color: rgba(59,130,246,0.2);
+}
+.nav-item .ni { font-size: 15px; width: 18px; text-align: center; }
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+.sync-btn {
+  width: 100%;
+  padding: 8px;
+  border-radius: var(--r);
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text2);
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .15s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.sync-btn:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.last-sync { font-size: 10px; color: var(--text3); text-align: center; margin-top: 6px; }
+
+/* ── MAIN ── */
+.main { flex: 1; overflow-x: hidden; }
+.page { display: none; padding: 28px 32px; }
+.page.active { display: block; }
+
+/* ── TOP BAR ── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+}
+.page-title { font-size: 20px; font-weight: 600; letter-spacing: -0.4px; }
+.page-sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+
+/* ── CONTROLS ── */
+select, input[type=number], input[type=text], input[type=date] {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  padding: 7px 12px;
+  outline: none;
+  transition: border-color .15s;
+}
+select:focus, input:focus { border-color: var(--blue); }
+select { cursor: pointer; padding-right: 28px; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center; }
+button {
+  font-family: var(--font);
+  cursor: pointer;
+  border-radius: var(--r);
+  transition: all .15s;
+  font-size: 13px;
+}
+.btn-primary {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  font-weight: 500;
+}
+.btn-primary:hover { background: #2563eb; }
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  padding: 7px 14px;
+}
+.btn-ghost:hover { border-color: var(--border2); color: var(--text); background: rgba(255,255,255,0.04); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-danger { background: var(--red); color: #fff; border: none; padding: 6px 12px; }
+
+/* ── KPI GRID ── */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.kpi-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.kpi-card:hover { border-color: var(--border2); }
+.kpi-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+}
+.kpi-card.blue::before { background: var(--blue); }
+.kpi-card.green::before { background: var(--green); }
+.kpi-card.amber::before { background: var(--amber); }
+.kpi-card.red::before { background: var(--red); }
+.kpi-card.cyan::before { background: var(--cyan); }
+.kpi-label { font-size: 11px; color: var(--text2); margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+.kpi-val { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; line-height: 1; }
+.kpi-val.blue { color: var(--blue); }
+.kpi-val.green { color: var(--green); }
+.kpi-val.amber { color: var(--amber); }
+.kpi-val.red { color: var(--red); }
+.kpi-val.cyan { color: var(--cyan); }
+.kpi-sub { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 13px; font-weight: 600;
+  color: var(--text);
+  margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title .ct-icon { color: var(--text3); }
+
+/* ── GRID ── */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .g2, .g3 { grid-template-columns: 1fr; } .sidebar { display: none; } }
+
+/* ── TABLES ── */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: rgba(255,255,255,0.02); }
+.num { text-align: right; font-family: var(--mono); font-size: 12px; }
+.mono { font-family: var(--mono); font-size: 12px; }
+
+/* ── BADGES ── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-green { background: var(--green-dim); color: var(--green); }
+.badge-amber { background: var(--amber-dim); color: var(--amber); }
+.badge-red { background: var(--red-dim); color: var(--red); }
+.badge-blue { background: var(--blue-dim); color: var(--blue); }
+.badge-cyan { background: var(--cyan-dim); color: var(--cyan); }
+
+/* ── ALERTS ── */
+.alert {
+  padding: 10px 14px;
+  border-radius: var(--r);
+  font-size: 13px;
+  margin-bottom: 8px;
+  display: flex; align-items: flex-start; gap: 8px;
+  border-left: 3px solid;
+}
+.alert-green { background: var(--green-dim); border-color: var(--green); color: #86efac; }
+.alert-amber { background: var(--amber-dim); border-color: var(--amber); color: #fcd34d; }
+.alert-red { background: var(--red-dim); border-color: var(--red); color: #fca5a5; }
+.alert-blue { background: var(--blue-dim); border-color: var(--blue); color: #93c5fd; }
+
+/* ── SLIDERS ── */
+.slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.slider-row label { font-size: 12px; color: var(--text2); min-width: 190px; }
+.slider-row input[type=range] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 4px;
+  background: var(--border2);
+  border-radius: 2px;
+  outline: none;
+  border: none;
+  padding: 0;
+}
+.slider-row input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--blue);
+  cursor: pointer;
+  border: 2px solid var(--bg2);
+}
+.slider-val {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--blue);
+  min-width: 65px;
+  text-align: right;
+}
+
+/* ── FLOW DIAGRAM ── */
+.flow { display: flex; align-items: center; gap: 0; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px; }
+.flow-node {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-align: center;
+}
+.flow-node.active-node { border-color: var(--blue); color: var(--blue); background: var(--blue-dim); }
+.flow-arrow { color: var(--text3); padding: 0 6px; font-size: 14px; flex-shrink: 0; }
+
+/* ── ER DIAGRAM ── */
+.er-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.er-table { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.er-head {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex; align-items: center; gap: 6px;
+}
+.er-head.dim { background: rgba(59,130,246,0.15); color: #93c5fd; border-bottom: 1px solid rgba(59,130,246,0.2); }
+.er-head.fact { background: rgba(34,197,94,0.12); color: #86efac; border-bottom: 1px solid rgba(34,197,94,0.2); }
+.er-field {
+  padding: 5px 12px;
+  font-size: 11px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  color: var(--text2);
+}
+.er-field:first-of-type { border-top: none; }
+.er-pk { font-family: var(--mono); font-size: 10px; color: var(--amber); font-weight: 600; }
+.er-fk { font-family: var(--mono); font-size: 10px; color: var(--cyan); font-weight: 600; }
+
+/* ── RISK MATRIX ── */
+.risk-row {
+  display: grid;
+  grid-template-columns: 2fr 90px 90px 100px;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  font-size: 13px;
+}
+.risk-row.hdr {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 12px;
+  background: var(--bg3);
+}
+.risk-cat { font-size: 11px; color: var(--text2); }
+
+/* ── MODAL ── */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r2);
+  padding: 24px;
+  width: 90%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.modal-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+.form-row { margin-bottom: 12px; }
+.form-label { font-size: 12px; color: var(--text2); margin-bottom: 4px; display: block; }
+.form-input { width: 100%; }
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+/* ── CHART WRAP ── */
+.chart-wrap { position: relative; width: 100%; }
+
+/* ── TABS ── */
+.tab-bar { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text2);
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all .15s;
+}
+.tab-btn.active { color: var(--blue); border-color: var(--blue); font-weight: 500; }
+.tab-btn:hover:not(.active) { color: var(--text); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── STORAGE STATUS ── */
+.storage-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; margin-right: 4px; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ── CHART default ── */
+.chart-wrap canvas { display: block; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ══════ SIDEBAR ══════ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">❄</div>
+    <div class="logo-name">HieloApp</div>
+    <div class="logo-sub">Los Olivos · Lima Norte</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Principal</div>
+    <div class="nav-item active" onclick="goTo('dashboard')"><span class="ni">◈</span> Dashboard</div>
+    <div class="nav-item" onclick="goTo('produccion')"><span class="ni">⚙</span> Producción</div>
+    <div class="nav-item" onclick="goTo('ventas')"><span class="ni">◎</span> Ventas</div>
+    <div class="nav-item" onclick="goTo('entregas')"><span class="ni">⬡</span> Entregas</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Gestión</div>
+    <div class="nav-item" onclick="goTo('clientes')"><span class="ni">◷</span> Clientes</div>
+    <div class="nav-item" onclick="goTo('inventario')"><span class="ni">◫</span> Inventario</div>
+    <div class="nav-item" onclick="goTo('gastos')"><span class="ni">◑</span> Gastos</div>
+    <div class="nav-item" onclick="goTo('cobranzas')"><span class="ni">◉</span> Cobranzas</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Análisis</div>
+    <div class="nav-item" onclick="goTo('simulador')"><span class="ni">◈</span> Simulador</div>
+    <div class="nav-item" onclick="goTo('reportes')"><span class="ni">▦</span> Reportes</div>
+    <div class="nav-item" onclick="goTo('modelo')"><span class="ni">◧</span> Modelo datos</div>
+    <div class="nav-item" onclick="goTo('riesgos')"><span class="ni">◬</span> Riesgos</div>
+  </div>
+
+  <div class="sidebar-footer">
+    <button class="sync-btn" onclick="saveData()">
+      <span class="storage-dot"></span> Guardar datos
+    </button>
+    <div class="last-sync" id="last-sync">Auto-guardado activado</div>
+  </div>
+</aside>
+
+<!-- ══════ MAIN ══════ -->
+<main class="main">
+
+<!-- ───── DASHBOARD ───── -->
+<div class="page active" id="page-dashboard">
+  <div class="topbar">
+    <div>
+      <div class="page-title">Dashboard general</div>
+      <div class="page-sub" id="dash-fecha">Cargando...</div>
+    </div>
+    <div class="topbar-right">
+      <select id="dash-mes" onchange="renderDashboard()">
+        <option value="0">Mes 1</option><option value="1">Mes 2</option><option value="2">Mes 3</option>
+        <option value="3">Mes 4</option><option value="4">Mes 5</option><option value="5" selected>Mes 6</option>
+        <option value="6">Mes 7</option><option value="7">Mes 8</option><option value="8">Mes 9</option>
+        <option value="9">Mes 10</option><option value="10">Mes 11</option><option value="11">Mes 12</option>
+      </select>
+    </div>
+  </div>
+  <div class="kpi-grid" id="dash-kpis"></div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Ingresos vs Costos — 12 meses</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="c-ingresos"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Ventas por canal (mes actual)</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="c-canal"></canvas></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Alertas operacionales</div>
+      <div id="dash-alertas"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Actividad reciente</div>
+      <table><tbody id="dash-actividad"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ───── PRODUCCIÓN ───── -->
+<div class="page" id="page-produccion">
+  <div class="topbar">
+    <div><div class="page-title">Control de Producción</div><div class="page-sub">Registro diario de lotes y ciclos</div></div>
+    <div class="topbar-right">
+      <button class="btn-primary" onclick="openModal('modal-prod')">+ Nuevo lote</button>
+    </div>
+  </div>
+
+  <div class="flow">
+    <div class="flow-node active-node">💧 Agua SEDAPAL</div><div class="flow-arrow">→</div>
+    <div class="flow-node active-node">🔬 Purificador 5 etapas</div><div class="flow-arrow">→</div>
+    <div class="flow-node active-node">❄ Máquina 100 kg/día</div><div class="flow-arrow">→</div>
+    <div class="flow-node">📦 Empaque + sellado</div><div class="flow-arrow">→</div>
+    <div class="flow-node">🧊 Congeladora buffer</div><div class="flow-arrow">→</div>
+    <div class="flow-node">🚚 Despacho</div>
+  </div>
+
+  <div class="kpi-grid" id="prod-kpis"></div>
+
+  <div class="card">
+    <div class="card-title">Lotes registrados</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Lote</th><th>Fecha</th><th>Kg prod.</th><th>Kg empac.</th>
+          <th>Merma kg</th><th>Merma %</th><th>Bolsas 5kg</th><th>kWh</th><th>Estado</th><th></th>
+        </tr></thead>
+        <tbody id="tbody-prod"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Producción diaria — últimos 14 registros</div>
+      <div class="chart-wrap" style="height:180px"><canvas id="c-prod-diario"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Merma % por lote</div>
+      <div class="chart-wrap" style="height:180px"><canvas id="c-merma"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ───── VENTAS ───── -->
+<div class="page" id="page-ventas">
+  <div class="topbar">
+    <div><div class="page-title">Registro de Ventas</div><div class="page-sub">Boletas, facturas y pedidos</div></div>
+    <div class="topbar-right">
+      <button class="btn-primary" onclick="openModal('modal-venta')">+ Nueva venta</button>
+    </div>
+  </div>
+  <div class="kpi-grid" id="ventas-kpis"></div>
+  <div class="card">
+    <div class="card-title">Historial de ventas</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>ID</th><th>Fecha</th><th>Cliente</th><th>Canal</th>
+          <th>Producto</th><th class="num">Cant.</th><th class="num">P.Unit (S/)</th>
+          <th class="num">Total (S/)</th><th>Estado</th><th></th>
+        </tr></thead>
+        <tbody id="tbody-ventas"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Ventas mensuales (S/)</div>
+      <div class="chart-wrap" style="height:180px"><canvas id="c-ventas-mes"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Top 5 clientes por monto</div>
+      <div class="chart-wrap" style="height:180px"><canvas id="c-top-clientes"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ───── ENTREGAS ───── -->
+<div class="page" id="page-entregas">
+  <div class="topbar">
+    <div><div class="page-title">Entregas y Rutas</div><div class="page-sub">OTIF, temperatura, tiempos</div></div>
+    <div class="topbar-right">
+      <button class="btn-primary" onclick="openModal('modal-entrega')">+ Registrar entrega</button>
+    </div>
+  </div>
+  <div class="kpi-grid" id="entregas-kpis"></div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">OTIF por ruta (%)</div>
+      <div class="chart-wrap" style="height:180px"><canvas id="c-otif"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">SLA — Estándares de entrega</div>
+      <table>
+        <tbody>
+          <tr><td>Tiempo máx. entrega</td><td class="num"><span class="badge badge-blue">&lt; 3 horas</span></td></tr>
+          <tr><td>Temperatura en destino</td><td class="num"><span class="badge badge-blue">Hielo sólido ≥95%</span></td></tr>
+          <tr><td>Peso por bolsa</td><td class="num"><span class="badge badge-blue">Neto ±50g</span></td></tr>
+          <tr><td>Fecha vencimiento</td><td class="num"><span class="badge badge-amber">72h desde producción</span></td></tr>
+          <tr><td>Crédito máximo</td><td class="num"><span class="badge badge-amber">7 días</span></td></tr>
+          <tr><td>Política devolución</td><td class="num"><span class="badge badge-green">Reposición sin costo</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Registro de entregas</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Ruta</th><th class="num">Bolsas</th><th>H.Prog.</th><th>H.Real</th><th>Estado</th><th>Temp.</th><th></th></tr></thead>
+        <tbody id="tbody-entregas"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ───── CLIENTES ───── -->
+<div class="page" id="page-clientes">
+  <div class="topbar">
+    <div><div class="page-title">Cartera de Clientes</div><div class="page-sub">Gestión de cuentas y frecuencia</div></div>
+    <div class="topbar-right">
+      <input type="text" id="busca-cliente" placeholder="Buscar cliente..." style="width:200px" oninput="renderClientes()">
+      <button class="btn-primary" onclick="openModal('modal-cliente')">+ Nuevo cliente</button>
+    </div>
+  </div>
+  <div class="kpi-grid" id="clientes-kpis"></div>
+  <div class="card">
+    <div class="card-title">Directorio de clientes</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Nombre</th><th>Tipo</th><th>Canal</th><th>Zona</th>
+          <th>Teléfono</th><th class="num">Compras mes</th><th class="num">Deuda (S/)</th><th>Estado</th><th></th>
+        </tr></thead>
+        <tbody id="tbody-clientes"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ───── INVENTARIO ───── -->
+<div class="page" id="page-inventario">
+  <div class="topbar">
+    <div><div class="page-title">Inventario y Lotes</div><div class="page-sub">Stock en congeladora y bolsas disponibles</div></div>
+  </div>
+  <div class="kpi-grid" id="inv-kpis"></div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Stock actual por presentación</div>
+      <div class="chart-wrap" style="height:180px"><canvas id="c-stock"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Lotes activos (vigentes)</div>
+      <table>
+        <thead><tr><th>Lote</th><th>Fecha prod.</th><th>Venc.</th><th class="num">Stock</th><th>Estado</th></tr></thead>
+        <tbody id="tbody-lotes"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Consumo de insumos</div>
+    <table>
+      <thead><tr><th>Insumo</th><th>Uso/día est.</th><th>Stock mín.</th><th>Estado</th><th>Acción</th></tr></thead>
+      <tbody>
+        <tr><td>Bolsas PE 5kg</td><td>20 unid</td><td>500 unid</td><td><span class="badge badge-green">OK</span></td><td><span style="font-size:12px;color:var(--text2)">Reponer si &lt; 200</span></td></tr>
+        <tr><td>Bolsas PE 2kg</td><td>8 unid</td><td>200 unid</td><td><span class="badge badge-green">OK</span></td><td><span style="font-size:12px;color:var(--text2)">Reponer si &lt; 80</span></td></tr>
+        <tr><td>Etiquetas</td><td>28 unid</td><td>300 unid</td><td><span class="badge badge-amber">Bajo</span></td><td><span style="font-size:12px;color:var(--amber)">Pedir esta semana</span></td></tr>
+        <tr><td>Filtros purificador</td><td>1 c/3 meses</td><td>2 sets</td><td><span class="badge badge-green">OK</span></td><td><span style="font-size:12px;color:var(--text2)">Próx. cambio: 90 días</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ───── GASTOS ───── -->
+<div class="page" id="page-gastos">
+  <div class="topbar">
+    <div><div class="page-title">Registro de Gastos</div><div class="page-sub">OPEX operativo y costos fijos</div></div>
+    <div class="topbar-right">
+      <button class="btn-primary" onclick="openModal('modal-gasto')">+ Nuevo gasto</button>
+    </div>
+  </div>
+  <div class="kpi-grid" id="gastos-kpis"></div>
+  <div class="card">
+    <div class="card-title">Gastos del mes</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Categoría</th><th>Concepto</th><th class="num">Monto (S/)</th><th>Comprobante</th><th></th></tr></thead>
+        <tbody id="tbody-gastos"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Gastos por categoría</div>
+      <div class="chart-wrap" style="height:180px"><canvas id="c-gastos-cat"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Evolución de gastos mensuales (S/)</div>
+      <div class="chart-wrap" style="height:180px"><canvas id="c-gastos-mes"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ───── COBRANZAS ───── -->
+<div class="page" id="page-cobranzas">
+  <div class="topbar">
+    <div><div class="page-title">Cobranzas y Cuentas por Cobrar</div><div class="page-sub">Control de cartera y morosidad</div></div>
+    <div class="topbar-right">
+      <button class="btn-primary" onclick="openModal('modal-cobro')">+ Registrar pago</button>
+    </div>
+  </div>
+  <div class="kpi-grid" id="cobro-kpis"></div>
+  <div class="card">
+    <div class="card-title">Cartera pendiente</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Cliente</th><th>Venta ID</th><th>Fecha venta</th><th>Vence</th><th class="num">Monto (S/)</th><th>Días atraso</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="tbody-cobros"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ───── SIMULADOR ───── -->
+<div class="page" id="page-simulador">
+  <div class="topbar">
+    <div><div class="page-title">Simulador Financiero</div><div class="page-sub">Escenarios interactivos en tiempo real</div></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Parámetros del negocio</div>
+      <div class="slider-row"><label>Bolsas 5kg vendidas/mes</label><input type="range" id="s-bolsas" min="100" max="1200" value="600" step="10" oninput="runSim()"><span class="slider-val" id="o-bolsas">600</span></div>
+      <div class="slider-row"><label>Precio de venta (S/)</label><input type="range" id="s-precio" min="4" max="10" value="6" step="0.5" oninput="runSim()"><span class="slider-val" id="o-precio">S/ 6.00</span></div>
+      <div class="slider-row"><label>Merma % de producción</label><input type="range" id="s-merma" min="2" max="20" value="6" step="1" oninput="runSim()"><span class="slider-val" id="o-merma">6%</span></div>
+      <div class="slider-row"><label>Tarifa eléctrica (S//kWh)</label><input type="range" id="s-luz" min="0.55" max="1.00" value="0.71" step="0.01" oninput="runSim()"><span class="slider-val" id="o-luz">0.71</span></div>
+      <div class="slider-row"><label>Mano de obra/mes (S/)</label><input type="range" id="s-mo" min="0" max="3000" value="1500" step="100" oninput="runSim()"><span class="slider-val" id="o-mo">S/ 1,500</span></div>
+      <div class="slider-row"><label>Costos fijos/mes (S/)</label><input type="range" id="s-fijos" min="400" max="1500" value="800" step="50" oninput="runSim()"><span class="slider-val" id="o-fijos">S/ 800</span></div>
+      <div class="slider-row"><label>CAPEX total invertido (S/)</label><input type="range" id="s-capex" min="5000" max="20000" value="13050" step="50" oninput="runSim()"><span class="slider-val" id="o-capex">S/ 13,050</span></div>
+    </div>
+    <div>
+      <div class="kpi-grid" id="kpi-sim" style="margin-bottom:16px"></div>
+      <div id="sim-alertas"></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Sensibilidad: utilidad vs volumen de ventas</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="c-sens"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Flujo de caja acumulado — 12 meses</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="c-flujo"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ───── REPORTES ───── -->
+<div class="page" id="page-reportes">
+  <div class="topbar">
+    <div><div class="page-title">Reportes</div><div class="page-sub">Estado de resultados y KPIs mensuales</div></div>
+    <div class="topbar-right">
+      <button class="btn-ghost" onclick="exportCSV()">↓ Exportar CSV</button>
+    </div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showReportTab('er')">Estado de resultados</button>
+    <button class="tab-btn" onclick="showReportTab('kpis')">KPIs 12 meses</button>
+    <button class="tab-btn" onclick="showReportTab('payback')">Payback</button>
+  </div>
+  <div class="tab-panel active" id="rtab-er">
+    <div class="card">
+      <div class="card-title">Estado de Resultados — 12 meses (Escenario Base)</div>
+      <div class="tbl-wrap"><table id="tbl-er"></table></div>
+    </div>
+  </div>
+  <div class="tab-panel" id="rtab-kpis">
+    <div class="kpi-grid" id="rep-kpis"></div>
+    <div class="card">
+      <div class="chart-wrap" style="height:220px"><canvas id="c-kpis-anual"></canvas></div>
+    </div>
+  </div>
+  <div class="tab-panel" id="rtab-payback">
+    <div class="card">
+      <div class="card-title">Análisis de Payback — recuperación de inversión</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="c-payback"></canvas></div>
+    </div>
+    <div class="kpi-grid" id="pb-kpis"></div>
+  </div>
+</div>
+
+<!-- ───── MODELO DATOS ───── -->
+<div class="page" id="page-modelo">
+  <div class="topbar">
+    <div><div class="page-title">Modelo de Datos</div><div class="page-sub">Arquitectura SQL / Power BI — tablas y relaciones</div></div>
+  </div>
+  <div class="er-grid" id="er-grid"></div>
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">Relaciones entre tablas</div>
+    <pre style="font-family:var(--mono);font-size:12px;color:var(--text2);line-height:2;white-space:pre-wrap">DIM_Clientes   ─── FK ───► FACT_Ventas       ─── FK ───► FACT_Entregas
+DIM_Productos  ─── FK ───► FACT_Ventas       ─── FK ───► FACT_Cobranzas
+DIM_Rutas      ─── FK ───► FACT_Entregas
+DIM_Activos    ─── FK ───► FACT_Mantenimiento
+FACT_Lotes     ─── FK ───► FACT_Produccion
+FACT_Lotes     ─── FK ───► FACT_Inventario
+FACT_Lotes     ─── FK ───► FACT_Mermas
+FACT_Lotes     ─── FK ───► FACT_Ventas
+FACT_Gastos    ─── FK ───► DIM_Rutas
+FACT_Compras   ────────── (standalone, proveedor + insumo)</pre>
+  </div>
+</div>
+
+<!-- ───── RIESGOS ───── -->
+<div class="page" id="page-riesgos">
+  <div class="topbar">
+    <div><div class="page-title">Matriz de Riesgos</div><div class="page-sub">Probabilidad, impacto y plan de mitigación</div></div>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card red"><div class="kpi-label">Riesgos críticos</div><div class="kpi-val red">4</div><div class="kpi-sub">Acción inmediata</div></div>
+    <div class="kpi-card amber"><div class="kpi-label">Riesgos medios</div><div class="kpi-val amber">3</div><div class="kpi-sub">Monitoreo activo</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Riesgos bajos</div><div class="kpi-val green">1</div><div class="kpi-sub">Controlados</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Planes de contingencia</div><div class="kpi-val blue">8</div><div class="kpi-sub">Documentados</div></div>
+  </div>
+  <div class="card">
+    <div class="risk-row hdr"><div>Riesgo</div><div>Prob.</div><div>Impacto</div><div>Nivel</div></div>
+    <div id="risk-rows"></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Mapa de calor probabilidad × impacto</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="c-riesgo"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Plan de contingencia rápida</div>
+      <div class="alert alert-amber"><span>⚠</span> Si ventas &lt; 300 bolsas/mes: activar ventas en mercado de abastos y canal eventos (Facebook/OLX).</div>
+      <div class="alert alert-red"><span>✕</span> Si máquina falla &gt; 3 días: comprar hielo a Dehielo/Austral Ice para reventa temporal.</div>
+      <div class="alert alert-blue"><span>ℹ</span> En invierno: diversificar a panaderías y embutidoras que usan hielo como insumo.</div>
+      <div class="alert alert-green"><span>✓</span> Siempre mantener stock de seguridad de 1 día en congeladora buffer.</div>
+    </div>
+  </div>
+</div>
+
+</main><!-- /main -->
+</div><!-- /layout -->
+
+<!-- ══════ MODALES ══════ -->
+
+<!-- Modal: Nuevo lote producción -->
+<div class="modal-overlay" id="modal-prod">
+  <div class="modal">
+    <div class="modal-title">Registrar nuevo lote de producción</div>
+    <div class="form-row-2">
+      <div><label class="form-label">Fecha</label><input type="date" id="f-prod-fecha" class="form-input"></div>
+      <div><label class="form-label">Nro. de lote</label><input type="text" id="f-prod-lote" class="form-input" placeholder="LOT-001"></div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Kg producidos</label><input type="number" id="f-prod-kg" class="form-input" placeholder="100"></div>
+      <div><label class="form-label">Kg empacados</label><input type="number" id="f-prod-emp" class="form-input" placeholder="94"></div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">kWh consumidos</label><input type="number" id="f-prod-kwh" class="form-input" placeholder="16.2"></div>
+      <div><label class="form-label">Litros agua</label><input type="number" id="f-prod-agua" class="form-input" placeholder="170"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Observaciones</label><input type="text" id="f-prod-obs" class="form-input" placeholder="Sin novedad"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('modal-prod')">Cancelar</button>
+      <button class="btn-primary" onclick="saveProd()">Guardar lote</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nueva venta -->
+<div class="modal-overlay" id="modal-venta">
+  <div class="modal">
+    <div class="modal-title">Registrar venta</div>
+    <div class="form-row-2">
+      <div><label class="form-label">Fecha</label><input type="date" id="f-v-fecha" class="form-input"></div>
+      <div><label class="form-label">Cliente</label>
+        <select id="f-v-cliente" class="form-input"><option value="">Seleccionar...</option></select>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Producto</label>
+        <select id="f-v-prod" class="form-input">
+          <option value="Bolsa 2kg">Bolsa 2 kg</option>
+          <option value="Bolsa 5kg" selected>Bolsa 5 kg</option>
+          <option value="Bolsa 10kg">Bolsa 10 kg</option>
+        </select>
+      </div>
+      <div><label class="form-label">Canal</label>
+        <select id="f-v-canal" class="form-input">
+          <option>Cevichería</option><option>Restaurante</option><option>Bodega</option>
+          <option>Minimarket</option><option>Mercado</option><option>Evento</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Cantidad (bolsas)</label><input type="number" id="f-v-qty" class="form-input" placeholder="20" oninput="calcTotal()"></div>
+      <div><label class="form-label">Precio unitario (S/)</label><input type="number" id="f-v-precio" class="form-input" placeholder="6.00" oninput="calcTotal()"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Total: <strong id="f-v-total" style="color:var(--green)">S/ 0.00</strong></label></div>
+    <div class="form-row"><label class="form-label">Método de pago</label>
+      <select id="f-v-pago" class="form-input">
+        <option>Efectivo</option><option>Yape</option><option>Plin</option><option>Transferencia</option><option>Crédito 7 días</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('modal-venta')">Cancelar</button>
+      <button class="btn-primary" onclick="saveVenta()">Registrar venta</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nueva entrega -->
+<div class="modal-overlay" id="modal-entrega">
+  <div class="modal">
+    <div class="modal-title">Registrar entrega</div>
+    <div class="form-row-2">
+      <div><label class="form-label">Fecha</label><input type="date" id="f-e-fecha" class="form-input"></div>
+      <div><label class="form-label">Cliente</label>
+        <select id="f-e-cliente" class="form-input"><option value="">Seleccionar...</option></select>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Ruta</label>
+        <select id="f-e-ruta" class="form-input">
+          <option>Ruta A — Norte</option><option>Ruta B — Centro</option><option>Ruta C — Sur</option>
+        </select>
+      </div>
+      <div><label class="form-label">Bolsas entregadas</label><input type="number" id="f-e-bolsas" class="form-input"></div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Hora programada</label><input type="text" id="f-e-prog" class="form-input" placeholder="07:30"></div>
+      <div><label class="form-label">Hora real</label><input type="text" id="f-e-real" class="form-input" placeholder="07:45"></div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Temp. llegada (°C)</label><input type="number" id="f-e-temp" class="form-input" placeholder="-7"></div>
+      <div><label class="form-label">Estado</label>
+        <select id="f-e-estado" class="form-input">
+          <option>Entregado OK</option><option>Tardío</option><option>Parcial</option><option>Fallido</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('modal-entrega')">Cancelar</button>
+      <button class="btn-primary" onclick="saveEntrega()">Registrar entrega</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nuevo cliente -->
+<div class="modal-overlay" id="modal-cliente">
+  <div class="modal">
+    <div class="modal-title">Registrar cliente</div>
+    <div class="form-row"><label class="form-label">Nombre / Razón social</label><input type="text" id="f-c-nombre" class="form-input"></div>
+    <div class="form-row-2">
+      <div><label class="form-label">Tipo</label>
+        <select id="f-c-tipo" class="form-input">
+          <option>Cevichería</option><option>Restaurante</option><option>Pollería</option><option>Bodega</option>
+          <option>Minimarket</option><option>Mercado</option><option>Evento</option><option>Panadería</option>
+        </select>
+      </div>
+      <div><label class="form-label">Canal</label>
+        <select id="f-c-canal" class="form-input">
+          <option>HORECA</option><option>Retail</option><option>Industrial</option><option>Eventos</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Zona</label>
+        <select id="f-c-zona" class="form-input">
+          <option>Norte Los Olivos</option><option>Centro Los Olivos</option><option>Sur Los Olivos</option><option>Fuera de zona</option>
+        </select>
+      </div>
+      <div><label class="form-label">Teléfono</label><input type="text" id="f-c-tel" class="form-input" placeholder="9XXXXXXXX"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Dirección</label><input type="text" id="f-c-dir" class="form-input"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('modal-cliente')">Cancelar</button>
+      <button class="btn-primary" onclick="saveCliente()">Guardar cliente</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nuevo gasto -->
+<div class="modal-overlay" id="modal-gasto">
+  <div class="modal">
+    <div class="modal-title">Registrar gasto</div>
+    <div class="form-row-2">
+      <div><label class="form-label">Fecha</label><input type="date" id="f-g-fecha" class="form-input"></div>
+      <div><label class="form-label">Categoría</label>
+        <select id="f-g-cat" class="form-input">
+          <option>Energía eléctrica</option><option>Agua SEDAPAL</option><option>Combustible</option>
+          <option>Bolsas / Embalaje</option><option>Mantenimiento</option><option>Transporte</option>
+          <option>Licencias / Legal</option><option>Otros</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row"><label class="form-label">Concepto</label><input type="text" id="f-g-concepto" class="form-input"></div>
+    <div class="form-row-2">
+      <div><label class="form-label">Monto (S/)</label><input type="number" id="f-g-monto" class="form-input"></div>
+      <div><label class="form-label">Comprobante</label><input type="text" id="f-g-comp" class="form-input" placeholder="Boleta / Recibo"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('modal-gasto')">Cancelar</button>
+      <button class="btn-primary" onclick="saveGasto()">Guardar gasto</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Registrar cobro -->
+<div class="modal-overlay" id="modal-cobro">
+  <div class="modal">
+    <div class="modal-title">Registrar pago recibido</div>
+    <div class="form-row-2">
+      <div><label class="form-label">Fecha pago</label><input type="date" id="f-co-fecha" class="form-input"></div>
+      <div><label class="form-label">Cliente</label>
+        <select id="f-co-cliente" class="form-input"><option value="">Seleccionar...</option></select>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div><label class="form-label">Monto cobrado (S/)</label><input type="number" id="f-co-monto" class="form-input"></div>
+      <div><label class="form-label">Método</label>
+        <select id="f-co-medio" class="form-input">
+          <option>Efectivo</option><option>Yape</option><option>Plin</option><option>Transferencia</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('modal-cobro')">Cancelar</button>
+      <button class="btn-primary" onclick="saveCobro()">Confirmar pago</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   DATA STORE — localStorage persistence
+══════════════════════════════════════════ */
+const STORE_KEY = 'hieloapp_v1';
+let DB = {
+  produccion: [], ventas: [], entregas: [],
+  clientes: [], gastos: [], cobranzas: [],
+  config: { capex: 13050, escenario: 'base' }
+};
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) DB = { ...DB, ...JSON.parse(raw) };
+  } catch(e) {}
+  if (!DB.clientes.length) seedData();
+}
+
+function saveData() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(DB));
+    document.getElementById('last-sync').textContent = 'Guardado: ' + new Date().toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
+  } catch(e) { alert('Error al guardar. El almacenamiento podría estar lleno.'); }
+}
+
+function seedData() {
+  const today = new Date();
+  const d = (offset=0) => {
+    const dt = new Date(today); dt.setDate(dt.getDate()-offset);
+    return dt.toISOString().split('T')[0];
+  };
+  DB.clientes = [
+    {id:'C001',nombre:'Cevichería El Muelle',tipo:'Cevichería',canal:'HORECA',zona:'Centro Los Olivos',tel:'987654321',dir:'Av. Carlos Izaguirre 450',comprasMes:8,deuda:0,activo:true},
+    {id:'C002',nombre:'Pollería Don Pepe',tipo:'Pollería',canal:'HORECA',zona:'Norte Los Olivos',tel:'976543210',dir:'Av. Las Palmeras 230',comprasMes:6,deuda:120,activo:true},
+    {id:'C003',nombre:'Bodega Sra. Rosa',tipo:'Bodega',canal:'Retail',zona:'Sur Los Olivos',tel:'965432109',dir:'Jr. Los Pinos 55',comprasMes:10,deuda:0,activo:true},
+    {id:'C004',nombre:'Minimarket Sol',tipo:'Minimarket',canal:'Retail',zona:'Centro Los Olivos',tel:'954321098',dir:'Av. Universitaria 1200',comprasMes:5,deuda:60,activo:true},
+    {id:'C005',nombre:'Rest. Los Andes',tipo:'Restaurante',canal:'HORECA',zona:'Sur Los Olivos',tel:'943210987',dir:'Av. Angélica Gamarra 780',comprasMes:7,deuda:0,activo:true},
+    {id:'C006',nombre:'Mercado Unicachi',tipo:'Mercado',canal:'Retail',zona:'Norte Los Olivos',tel:'932109876',dir:'Av. Antúnez de Mayolo 890',comprasMes:15,deuda:200,activo:true},
+  ];
+  DB.produccion = [
+    {id:'P001',fecha:d(6),lote:'LOT-001',kgProd:100,kgEmp:94,kwh:16.2,agua:170,obs:'Normal'},
+    {id:'P002',fecha:d(5),lote:'LOT-002',kgProd:100,kgEmp:95,kwh:16.0,agua:168,obs:'Sin novedad'},
+    {id:'P003',fecha:d(4),lote:'LOT-003',kgProd:100,kgEmp:93,kwh:16.4,agua:172,obs:'Leve merma por calor'},
+    {id:'P004',fecha:d(3),lote:'LOT-004',kgProd:100,kgEmp:96,kwh:15.9,agua:167,obs:'Normal'},
+    {id:'P005',fecha:d(2),lote:'LOT-005',kgProd:100,kgEmp:94,kwh:16.2,agua:170,obs:'Normal'},
+    {id:'P006',fecha:d(1),lote:'LOT-006',kgProd:100,kgEmp:95,kwh:16.1,agua:169,obs:'Normal'},
+    {id:'P007',fecha:d(0),lote:'LOT-007',kgProd:100,kgEmp:94,kwh:16.2,agua:170,obs:'Normal'},
+  ];
+  DB.ventas = [
+    {id:'V001',fecha:d(6),clienteId:'C001',canal:'HORECA',producto:'Bolsa 5kg',qty:20,precio:6,total:120,pago:'Efectivo',estado:'Pagado'},
+    {id:'V002',fecha:d(5),clienteId:'C002',canal:'HORECA',producto:'Bolsa 5kg',qty:15,precio:6,total:90,pago:'Yape',estado:'Pagado'},
+    {id:'V003',fecha:d(5),clienteId:'C003',canal:'Retail',producto:'Bolsa 2kg',qty:20,precio:3,total:60,pago:'Efectivo',estado:'Pagado'},
+    {id:'V004',fecha:d(4),clienteId:'C006',canal:'Retail',producto:'Bolsa 5kg',qty:30,precio:5.5,total:165,pago:'Crédito 7 días',estado:'Pendiente'},
+    {id:'V005',fecha:d(3),clienteId:'C001',canal:'HORECA',producto:'Bolsa 10kg',qty:8,precio:11,total:88,pago:'Efectivo',estado:'Pagado'},
+    {id:'V006',fecha:d(2),clienteId:'C004',canal:'Retail',producto:'Bolsa 5kg',qty:10,precio:6,total:60,pago:'Yape',estado:'Pagado'},
+    {id:'V007',fecha:d(1),clienteId:'C005',canal:'HORECA',producto:'Bolsa 5kg',qty:12,precio:6,total:72,pago:'Plin',estado:'Pagado'},
+    {id:'V008',fecha:d(0),clienteId:'C002',canal:'HORECA',producto:'Bolsa 5kg',qty:18,precio:6,total:108,pago:'Crédito 7 días',estado:'Pendiente'},
+  ];
+  DB.entregas = [
+    {id:'E001',fecha:d(1),clienteId:'C001',ruta:'Ruta A — Norte',bolsas:20,prog:'07:00',real:'07:10',temp:-8,estado:'Entregado OK'},
+    {id:'E002',fecha:d(1),clienteId:'C002',ruta:'Ruta A — Norte',bolsas:15,prog:'07:30',real:'07:25',temp:-7,estado:'Entregado OK'},
+    {id:'E003',fecha:d(1),clienteId:'C003',ruta:'Ruta B — Centro',bolsas:20,prog:'08:00',real:'08:55',temp:-5,estado:'Tardío'},
+    {id:'E004',fecha:d(0),clienteId:'C006',ruta:'Ruta A — Norte',bolsas:30,prog:'07:00',real:'07:05',temp:-9,estado:'Entregado OK'},
+    {id:'E005',fecha:d(0),clienteId:'C004',ruta:'Ruta B — Centro',bolsas:10,prog:'08:30',real:'08:35',temp:-7,estado:'Entregado OK'},
+    {id:'E006',fecha:d(0),clienteId:'C005',ruta:'Ruta C — Sur',bolsas:12,prog:'09:00',real:'10:15',temp:-4,estado:'Tardío'},
+  ];
+  DB.gastos = [
+    {id:'G001',fecha:d(30),cat:'Energía eléctrica',concepto:'Recibo ENEL junio',monto:280,comp:'Recibo-06'},
+    {id:'G002',fecha:d(25),cat:'Agua SEDAPAL',concepto:'Recibo agua junio',monto:45,comp:'Recibo-06'},
+    {id:'G003',fecha:d(20),cat:'Combustible',concepto:'Gasolina moto semana 1',monto:40,comp:'Grifo ticket'},
+    {id:'G004',fecha:d(15),cat:'Bolsas / Embalaje',concepto:'Bolsas PE 5kg x1000',monto:160,comp:'Fact-0234'},
+    {id:'G005',fecha:d(10),cat:'Combustible',concepto:'Gasolina moto semana 2',monto:38,comp:'Grifo ticket'},
+    {id:'G006',fecha:d(5),cat:'Mantenimiento',concepto:'Limpieza purificador',monto:30,comp:'Sin comprobante'},
+    {id:'G007',fecha:d(2),cat:'Combustible',concepto:'Gasolina moto semana 3',monto:42,comp:'Grifo ticket'},
+  ];
+  DB.cobranzas = [
+    {id:'CO001',clienteId:'C004',ventaId:'V004',monto:165,fechaVenta:d(4),fechaVenc:d(-3),pagado:false},
+    {id:'CO002',clienteId:'C002',ventaId:'V008',monto:108,fechaVenta:d(0),fechaVenc:d(-7),pagado:false},
+  ];
+  saveData();
+}
+
+/* ═══════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════ */
+function goTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'" + page + "'")) n.classList.add('active');
+  });
+  const renders = {
+    dashboard: renderDashboard, produccion: renderProduccion,
+    ventas: renderVentas, entregas: renderEntregas,
+    clientes: renderClientes, inventario: renderInventario,
+    gastos: renderGastos, cobranzas: renderCobranzas,
+    simulador: runSim, reportes: renderReportes,
+    modelo: renderModelo, riesgos: renderRiesgos
+  };
+  if (renders[page]) renders[page]();
+}
+
+/* ═══════════════════════════════════════════
+   MODALS
+══════════════════════════════════════════ */
+function openModal(id) {
+  const today = new Date().toISOString().split('T')[0];
+  ['f-prod-fecha','f-v-fecha','f-e-fecha','f-g-fecha','f-co-fecha'].forEach(f => {
+    const el = document.getElementById(f); if (el) el.value = today;
+  });
+  ['f-v-cliente','f-e-cliente','f-co-cliente','f-co-medio'].forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (sel && selId.includes('cliente')) {
+      sel.innerHTML = '<option value="">Seleccionar...</option>' +
+        DB.clientes.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+    }
+  });
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(mo => {
+  mo.addEventListener('click', e => { if (e.target === mo) mo.classList.remove('open'); });
+});
+
+/* ═══════════════════════════════════════════
+   SAVE FUNCTIONS
+══════════════════════════════════════════ */
+function uid(prefix) { return prefix + Date.now().toString(36).toUpperCase(); }
+
+function saveProd() {
+  const kg = parseFloat(document.getElementById('f-prod-kg').value) || 100;
+  const emp = parseFloat(document.getElementById('f-prod-emp').value) || 94;
+  DB.produccion.push({
+    id: uid('P'), fecha: document.getElementById('f-prod-fecha').value,
+    lote: document.getElementById('f-prod-lote').value || uid('LOT-'),
+    kgProd: kg, kgEmp: emp,
+    kwh: parseFloat(document.getElementById('f-prod-kwh').value) || 16.2,
+    agua: parseFloat(document.getElementById('f-prod-agua').value) || 170,
+    obs: document.getElementById('f-prod-obs').value || 'Sin novedad'
+  });
+  saveData(); closeModal('modal-prod'); renderProduccion();
+}
+
+function calcTotal() {
+  const q = parseFloat(document.getElementById('f-v-qty').value) || 0;
+  const p = parseFloat(document.getElementById('f-v-precio').value) || 0;
+  document.getElementById('f-v-total').textContent = 'S/ ' + (q * p).toFixed(2);
+}
+
+function saveVenta() {
+  const qty = parseInt(document.getElementById('f-v-qty').value) || 0;
+  const precio = parseFloat(document.getElementById('f-v-precio').value) || 6;
+  const pago = document.getElementById('f-v-pago').value;
+  const venta = {
+    id: uid('V'), fecha: document.getElementById('f-v-fecha').value,
+    clienteId: document.getElementById('f-v-cliente').value,
+    canal: document.getElementById('f-v-canal').value,
+    producto: document.getElementById('f-v-prod').value,
+    qty, precio, total: qty * precio, pago,
+    estado: pago === 'Crédito 7 días' ? 'Pendiente' : 'Pagado'
+  };
+  DB.ventas.push(venta);
+  if (pago === 'Crédito 7 días') {
+    const fv = new Date(venta.fecha); fv.setDate(fv.getDate() + 7);
+    DB.cobranzas.push({ id: uid('CO'), clienteId: venta.clienteId, ventaId: venta.id,
+      monto: venta.total, fechaVenta: venta.fecha, fechaVenc: fv.toISOString().split('T')[0], pagado: false });
+  }
+  saveData(); closeModal('modal-venta'); renderVentas();
+}
+
+function saveEntrega() {
+  DB.entregas.push({
+    id: uid('E'), fecha: document.getElementById('f-e-fecha').value,
+    clienteId: document.getElementById('f-e-cliente').value,
+    ruta: document.getElementById('f-e-ruta').value,
+    bolsas: parseInt(document.getElementById('f-e-bolsas').value) || 0,
+    prog: document.getElementById('f-e-prog').value,
+    real: document.getElementById('f-e-real').value,
+    temp: parseFloat(document.getElementById('f-e-temp').value) || -7,
+    estado: document.getElementById('f-e-estado').value
+  });
+  saveData(); closeModal('modal-entrega'); renderEntregas();
+}
+
+function saveCliente() {
+  const id = 'C' + String(DB.clientes.length + 1).padStart('03','0');
+  DB.clientes.push({
+    id, nombre: document.getElementById('f-c-nombre').value,
+    tipo: document.getElementById('f-c-tipo').value,
+    canal: document.getElementById('f-c-canal').value,
+    zona: document.getElementById('f-c-zona').value,
+    tel: document.getElementById('f-c-tel').value,
+    dir: document.getElementById('f-c-dir').value,
+    comprasMes: 0, deuda: 0, activo: true
+  });
+  saveData(); closeModal('modal-cliente'); renderClientes();
+}
+
+function saveGasto() {
+  DB.gastos.push({
+    id: uid('G'), fecha: document.getElementById('f-g-fecha').value,
+    cat: document.getElementById('f-g-cat').value,
+    concepto: document.getElementById('f-g-concepto').value,
+    monto: parseFloat(document.getElementById('f-g-monto').value) || 0,
+    comp: document.getElementById('f-g-comp').value
+  });
+  saveData(); closeModal('modal-gasto'); renderGastos();
+}
+
+function saveCobro() {
+  const clienteId = document.getElementById('f-co-cliente').value;
+  const monto = parseFloat(document.getElementById('f-co-monto').value) || 0;
+  DB.cobranzas.filter(c => c.clienteId === clienteId && !c.pagado).forEach(c => { c.pagado = true; });
+  const cl = DB.clientes.find(c => c.id === clienteId);
+  if (cl) cl.deuda = Math.max(0, cl.deuda - monto);
+  saveData(); closeModal('modal-cobro'); renderCobranzas();
+}
+
+function deleteRec(arr, id, renderFn) {
+  DB[arr] = DB[arr].filter(r => r.id !== id);
+  saveData(); renderFn();
+}
+
+/* ═══════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════ */
+const fmt = (n, d=0) => Number(n).toLocaleString('es-PE', {minimumFractionDigits:d, maximumFractionDigits:d});
+const fmtS = (n, d=0) => 'S/ ' + fmt(n, d);
+const getCliente = id => DB.clientes.find(c => c.id === id) || {nombre: id || '—'};
+let chartInstances = {};
+function mkChart(id, cfg) {
+  if (chartInstances[id]) chartInstances[id].destroy();
+  const el = document.getElementById(id);
+  if (!el) return;
+  chartInstances[id] = new Chart(el, cfg);
+}
+
+const MES = ['M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12'];
+const ESC_BASE = [180,240,360,450,500,600,620,600,580,600,650,700];
+const PRECIO = 6;
+
+/* ═══════════════════════════════════════════
+   DASHBOARD
+══════════════════════════════════════════ */
+function renderDashboard() {
+  document.getElementById('dash-fecha').textContent = new Date().toLocaleDateString('es-PE', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const m = parseInt(document.getElementById('dash-mes').value);
+  const bolsas = ESC_BASE[m];
+  const ing = bolsas * PRECIO;
+  const cvar = bolsas * 2.8;
+  const util = ing - cvar - 800;
+  const mermaP = DB.produccion.length ? (DB.produccion.reduce((a,r) => a + (r.kgProd - r.kgEmp), 0) / DB.produccion.reduce((a,r) => a + r.kgProd, 0) * 100) : 6;
+  const otif = DB.entregas.length ? (DB.entregas.filter(e => e.estado === 'Entregado OK').length / DB.entregas.length * 100) : 92;
+  const totalVentas = DB.ventas.reduce((a,v) => a + v.total, 0);
+  const deudaTotal = DB.clientes.reduce((a,c) => a + (c.deuda||0), 0);
+
+  document.getElementById('dash-kpis').innerHTML = `
+    <div class="kpi-card blue"><div class="kpi-label">Ingresos (mes ${m+1})</div><div class="kpi-val blue">${fmtS(ing)}</div><div class="kpi-sub">${bolsas} bolsas × S/${PRECIO}</div></div>
+    <div class="kpi-card ${util>0?'green':'red'}"><div class="kpi-label">Utilidad neta</div><div class="kpi-val ${util>0?'green':'red'}">${fmtS(util)}</div><div class="kpi-sub">Margen ${Math.round(util/ing*100)}%</div></div>
+    <div class="kpi-card ${otif>=90?'green':'amber'}"><div class="kpi-label">OTIF</div><div class="kpi-val ${otif>=90?'green':'amber'}">${otif.toFixed(0)}%</div><div class="kpi-sub">${DB.entregas.length} entregas registradas</div></div>
+    <div class="kpi-card ${mermaP<=8?'green':'red'}"><div class="kpi-label">Merma actual</div><div class="kpi-val ${mermaP<=8?'green':'amber'}">${mermaP.toFixed(1)}%</div><div class="kpi-sub">Objetivo ≤ 8%</div></div>
+    <div class="kpi-card cyan"><div class="kpi-label">Total ventas registradas</div><div class="kpi-val cyan">${fmtS(totalVentas)}</div><div class="kpi-sub">${DB.ventas.length} transacciones</div></div>
+    <div class="kpi-card ${deudaTotal>500?'red':'amber'}"><div class="kpi-label">C×C pendiente</div><div class="kpi-val ${deudaTotal>500?'red':'amber'}">${fmtS(deudaTotal)}</div><div class="kpi-sub">${DB.cobranzas.filter(c=>!c.pagado).length} facturas</div></div>
+  `;
+
+  mkChart('c-ingresos', {
+    type:'line',
+    data:{labels:MES, datasets:[
+      {label:'Ingresos',data:ESC_BASE.map(b=>b*PRECIO),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',fill:true,tension:0.3,pointRadius:3},
+      {label:'Utilidad',data:ESC_BASE.map(b=>Math.max(-600,b*PRECIO-b*2.8-800)),borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.06)',fill:true,tension:0.3,pointRadius:3},
+      {label:'Costos fijos',data:new Array(12).fill(800),borderColor:'#ef4444',borderDash:[4,3],pointRadius:0},
+    ]},
+    options:chartOpts('S/')
+  });
+
+  const canalDist = {Cevichería:35,Restaurante:25,Bodega:20,Minimarket:12,Evento:8};
+  mkChart('c-canal', {
+    type:'doughnut',
+    data:{labels:Object.keys(canalDist),
+      datasets:[{data:Object.values(canalDist).map(p=>Math.round(bolsas*p/100)),
+        backgroundColor:['#3b82f6','#22c55e','#f59e0b','#06b6d4','#8b5cf6'],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#8b949e',font:{size:11},boxWidth:10,padding:10}}}}
+  });
+
+  const alerts = document.getElementById('dash-alertas');
+  alerts.innerHTML = '';
+  if (util < 0) alerts.innerHTML += `<div class="alert alert-red"><span>✕</span> Pérdida proyectada en mes ${m+1}: cubrir con capital de trabajo.</div>`;
+  if (otif < 90) alerts.innerHTML += `<div class="alert alert-amber"><span>⚠</span> OTIF ${otif.toFixed(0)}% — por debajo del objetivo 90%. Revisar rutas.</div>`;
+  if (mermaP > 8) alerts.innerHTML += `<div class="alert alert-amber"><span>⚠</span> Merma ${mermaP.toFixed(1)}% — supera el 8% objetivo. Revisar temperatura.</div>`;
+  if (deudaTotal > 0) alerts.innerHTML += `<div class="alert alert-amber"><span>⚠</span> C×C pendiente: ${fmtS(deudaTotal)}. Gestionar cobranza esta semana.</div>`;
+  if (alerts.innerHTML === '') alerts.innerHTML = `<div class="alert alert-green"><span>✓</span> Todos los indicadores dentro de los parámetros normales.</div>`;
+
+  const activ = DB.ventas.slice(-5).reverse();
+  document.getElementById('dash-actividad').innerHTML = activ.map(v =>
+    `<tr><td>${v.fecha}</td><td>${getCliente(v.clienteId).nombre}</td><td class="num"><span class="badge badge-green">${fmtS(v.total)}</span></td></tr>`
+  ).join('');
+}
+
+/* ═══════════════════════════════════════════
+   PRODUCCIÓN
+══════════════════════════════════════════ */
+function renderProduccion() {
+  const prods = DB.produccion;
+  const kgTotal = prods.reduce((a,r) => a + r.kgProd, 0);
+  const mermaKg = prods.reduce((a,r) => a + (r.kgProd - r.kgEmp), 0);
+  const mermaP = kgTotal ? mermaKg / kgTotal * 100 : 6;
+  const kwhTotal = prods.reduce((a,r) => a + r.kwh, 0);
+  const hoy = prods.length ? prods[prods.length-1] : {kgProd:100,kgEmp:94};
+
+  document.getElementById('prod-kpis').innerHTML = `
+    <div class="kpi-card blue"><div class="kpi-label">Lotes registrados</div><div class="kpi-val blue">${prods.length}</div><div class="kpi-sub">Total histórico</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Kg producidos total</div><div class="kpi-val green">${fmt(kgTotal)}</div><div class="kpi-sub">Producción acumulada</div></div>
+    <div class="kpi-card ${mermaP<=8?'green':'red'}"><div class="kpi-label">Merma promedio</div><div class="kpi-val ${mermaP<=8?'green':'amber'}">${mermaP.toFixed(1)}%</div><div class="kpi-sub">Objetivo ≤ 8%</div></div>
+    <div class="kpi-card cyan"><div class="kpi-label">kWh totales</div><div class="kpi-val cyan">${fmt(kwhTotal,1)}</div><div class="kpi-sub">${fmtS(kwhTotal*0.71,2)} en energía</div></div>
+    <div class="kpi-card amber"><div class="kpi-label">Último lote</div><div class="kpi-val amber">${hoy.kgEmp} kg</div><div class="kpi-sub">empacados netos</div></div>
+  `;
+
+  document.getElementById('tbody-prod').innerHTML = prods.slice().reverse().map(r => {
+    const mp = ((r.kgProd - r.kgEmp) / r.kgProd * 100).toFixed(1);
+    return `<tr>
+      <td class="mono">${r.lote}</td><td>${r.fecha}</td>
+      <td class="num">${r.kgProd}</td><td class="num">${r.kgEmp}</td>
+      <td class="num">${r.kgProd - r.kgEmp}</td>
+      <td class="num"><span class="badge ${mp<=8?'badge-green':'badge-red'}">${mp}%</span></td>
+      <td class="num">${Math.floor(r.kgEmp/5)}</td>
+      <td class="num">${r.kwh}</td>
+      <td><span class="badge badge-blue">OK</span></td>
+      <td><button class="btn-ghost btn-sm" onclick="deleteRec('produccion','${r.id}',renderProduccion)">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  const last14 = prods.slice(-14);
+  mkChart('c-prod-diario', {
+    type:'bar',
+    data:{labels:last14.map(r=>r.fecha.slice(5)),datasets:[
+      {label:'Kg prod.',data:last14.map(r=>r.kgProd),backgroundColor:'rgba(59,130,246,0.5)',borderRadius:3},
+      {label:'Kg emp.',data:last14.map(r=>r.kgEmp),backgroundColor:'rgba(34,197,94,0.7)',borderRadius:3},
+    ]},
+    options:{...chartOpts('kg'),plugins:{legend:{display:false}}}
+  });
+  mkChart('c-merma', {
+    type:'line',
+    data:{labels:last14.map(r=>r.fecha.slice(5)),datasets:[{
+      label:'Merma %',data:last14.map(r=>+((r.kgProd-r.kgEmp)/r.kgProd*100).toFixed(1)),
+      borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.1)',fill:true,tension:0.3,pointRadius:3
+    },{label:'Límite 8%',data:new Array(14).fill(8),borderColor:'rgba(239,68,68,0.5)',borderDash:[4,3],pointRadius:0}]},
+    options:{...chartOpts('%'),plugins:{legend:{display:false}}}
+  });
+}
+
+/* ═══════════════════════════════════════════
+   VENTAS
+══════════════════════════════════════════ */
+function renderVentas() {
+  const totalIng = DB.ventas.reduce((a,v) => a + v.total, 0);
+  const pagadas = DB.ventas.filter(v => v.estado === 'Pagado').reduce((a,v) => a + v.total, 0);
+  const pendiente = DB.ventas.filter(v => v.estado === 'Pendiente').reduce((a,v) => a + v.total, 0);
+
+  document.getElementById('ventas-kpis').innerHTML = `
+    <div class="kpi-card blue"><div class="kpi-label">Ingresos totales</div><div class="kpi-val blue">${fmtS(totalIng,2)}</div><div class="kpi-sub">${DB.ventas.length} ventas</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Cobrado</div><div class="kpi-val green">${fmtS(pagadas,2)}</div><div class="kpi-sub">Ventas pagadas</div></div>
+    <div class="kpi-card amber"><div class="kpi-label">Por cobrar</div><div class="kpi-val amber">${fmtS(pendiente,2)}</div><div class="kpi-sub">Crédito pendiente</div></div>
+    <div class="kpi-card cyan"><div class="kpi-label">Ticket promedio</div><div class="kpi-val cyan">${fmtS(totalIng/Math.max(1,DB.ventas.length),2)}</div><div class="kpi-sub">Por transacción</div></div>
+  `;
+
+  document.getElementById('tbody-ventas').innerHTML = DB.ventas.slice().reverse().map(v => {
+    const cl = getCliente(v.clienteId);
+    return `<tr>
+      <td class="mono">${v.id}</td><td>${v.fecha}</td>
+      <td>${cl.nombre}</td><td><span class="badge badge-blue">${v.canal}</span></td>
+      <td>${v.producto}</td><td class="num">${v.qty}</td>
+      <td class="num">${fmtS(v.precio,2)}</td><td class="num">${fmtS(v.total,2)}</td>
+      <td><span class="badge ${v.estado==='Pagado'?'badge-green':'badge-amber'}">${v.estado}</span></td>
+      <td><button class="btn-ghost btn-sm" onclick="deleteRec('ventas','${v.id}',renderVentas)">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const ventasPorMes = new Array(12).fill(0);
+  DB.ventas.forEach(v => { const m = new Date(v.fecha).getMonth(); ventasPorMes[m] += v.total; });
+  mkChart('c-ventas-mes', {type:'bar',data:{labels:meses,datasets:[{label:'Ventas S/',data:ventasPorMes,backgroundColor:'rgba(59,130,246,0.6)',borderRadius:3}]},options:chartOpts('S/')});
+
+  const porCliente = {};
+  DB.ventas.forEach(v => { const n = getCliente(v.clienteId).nombre; porCliente[n] = (porCliente[n]||0) + v.total; });
+  const top = Object.entries(porCliente).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  mkChart('c-top-clientes', {
+    type:'bar',
+    data:{labels:top.map(t=>t[0].split(' ').slice(0,2).join(' ')),datasets:[{label:'S/',data:top.map(t=>t[1]),backgroundColor:['#3b82f6','#22c55e','#f59e0b','#06b6d4','#8b5cf6'],borderRadius:3}]},
+    options:{...chartOpts('S/'),indexAxis:'y',plugins:{legend:{display:false}}}
+  });
+}
+
+/* ═══════════════════════════════════════════
+   ENTREGAS
+══════════════════════════════════════════ */
+function renderEntregas() {
+  const ents = DB.entregas;
+  const ok = ents.filter(e => e.estado === 'Entregado OK').length;
+  const otif = ents.length ? ok / ents.length * 100 : 0;
+  const tardios = ents.filter(e => e.estado === 'Tardío').length;
+
+  document.getElementById('entregas-kpis').innerHTML = `
+    <div class="kpi-card ${otif>=90?'green':'red'}"><div class="kpi-label">OTIF</div><div class="kpi-val ${otif>=90?'green':'amber'}">${otif.toFixed(0)}%</div><div class="kpi-sub">Objetivo ≥ 90%</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Total entregas</div><div class="kpi-val blue">${ents.length}</div></div>
+    <div class="kpi-card green"><div class="kpi-label">A tiempo</div><div class="kpi-val green">${ok}</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Tardías</div><div class="kpi-val ${tardios>0?'red':'green'}">${tardios}</div></div>
+  `;
+
+  document.getElementById('tbody-entregas').innerHTML = ents.slice().reverse().map(e => {
+    const cl = getCliente(e.clienteId);
+    return `<tr>
+      <td class="mono">${e.id}</td><td>${e.fecha}</td>
+      <td>${cl.nombre}</td><td>${e.ruta}</td>
+      <td class="num">${e.bolsas}</td><td class="mono">${e.prog}</td><td class="mono">${e.real}</td>
+      <td><span class="badge ${e.estado==='Entregado OK'?'badge-green':e.estado==='Tardío'?'badge-amber':'badge-red'}">${e.estado}</span></td>
+      <td class="num ${e.temp<=-5?'':''}"><span style="color:${e.temp<=-5?'#22c55e':'#ef4444'}">${e.temp}°C</span></td>
+      <td><button class="btn-ghost btn-sm" onclick="deleteRec('entregas','${e.id}',renderEntregas)">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  const rutas = ['Ruta A — Norte','Ruta B — Centro','Ruta C — Sur'];
+  const otifPorRuta = rutas.map(r => {
+    const re = ents.filter(e=>e.ruta===r);
+    return re.length ? re.filter(e=>e.estado==='Entregado OK').length/re.length*100 : 0;
+  });
+  mkChart('c-otif', {
+    type:'bar',
+    data:{labels:['Norte','Centro','Sur'],datasets:[{label:'OTIF %',data:otifPorRuta.map(v=>+v.toFixed(0)),backgroundColor:otifPorRuta.map(v=>v>=90?'rgba(34,197,94,0.7)':'rgba(245,158,11,0.7)'),borderRadius:4}]},
+    options:{...chartOpts('%'),scales:{y:{min:0,max:100}}}
+  });
+}
+
+/* ═══════════════════════════════════════════
+   CLIENTES
+══════════════════════════════════════════ */
+function renderClientes() {
+  const busca = (document.getElementById('busca-cliente')?.value || '').toLowerCase();
+  const cls = DB.clientes.filter(c => c.nombre.toLowerCase().includes(busca) || c.tipo.toLowerCase().includes(busca));
+  const totalDeuda = DB.clientes.reduce((a,c)=>a+(c.deuda||0),0);
+
+  document.getElementById('clientes-kpis').innerHTML = `
+    <div class="kpi-card blue"><div class="kpi-label">Clientes activos</div><div class="kpi-val blue">${DB.clientes.filter(c=>c.activo).length}</div></div>
+    <div class="kpi-card amber"><div class="kpi-label">Deuda total</div><div class="kpi-val amber">${fmtS(totalDeuda,2)}</div><div class="kpi-sub">Créditos pendientes</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Con compras este mes</div><div class="kpi-val green">${DB.clientes.filter(c=>c.comprasMes>0).length}</div></div>
+  `;
+
+  document.getElementById('tbody-clientes').innerHTML = cls.map(c =>
+    `<tr>
+      <td><strong>${c.nombre}</strong></td><td>${c.tipo}</td>
+      <td><span class="badge badge-blue">${c.canal}</span></td><td>${c.zona}</td>
+      <td class="mono">${c.tel}</td><td class="num">${c.comprasMes}</td>
+      <td class="num ${c.deuda>0?'':''}"><span style="color:${c.deuda>0?'#f59e0b':'#22c55e'}">${fmtS(c.deuda,2)}</span></td>
+      <td><span class="badge ${c.activo?'badge-green':'badge-red'}">${c.activo?'Activo':'Inactivo'}</span></td>
+      <td><button class="btn-ghost btn-sm" onclick="deleteRec('clientes','${c.id}',renderClientes)">✕</button></td>
+    </tr>`
+  ).join('');
+}
+
+/* ═══════════════════════════════════════════
+   INVENTARIO
+══════════════════════════════════════════ */
+function renderInventario() {
+  const stockTotal = DB.produccion.reduce((a,r)=>a+r.kgEmp,0);
+  const vendido = DB.ventas.reduce((a,v)=>a+(v.qty*(v.producto.includes('10')?10:v.producto.includes('2')?2:5)),0);
+  const stockDisp = Math.max(0, stockTotal - vendido);
+
+  document.getElementById('inv-kpis').innerHTML = `
+    <div class="kpi-card blue"><div class="kpi-label">Stock disponible est.</div><div class="kpi-val blue">${fmt(stockDisp)} kg</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Bolsas 5kg equiv.</div><div class="kpi-val green">${Math.floor(stockDisp/5)}</div></div>
+    <div class="kpi-card amber"><div class="kpi-label">Lotes activos</div><div class="kpi-val amber">${DB.produccion.slice(-3).length}</div><div class="kpi-sub">Últimos 3 días</div></div>
+  `;
+
+  mkChart('c-stock', {
+    type:'bar',
+    data:{labels:['Bolsas 2kg','Bolsas 5kg','Bolsas 10kg'],
+      datasets:[{label:'Stock est.',data:[Math.floor(stockDisp/2*0.2),Math.floor(stockDisp/5*0.7),Math.floor(stockDisp/10*0.1)],backgroundColor:['#06b6d4','#3b82f6','#8b5cf6'],borderRadius:4}]},
+    options:{...chartOpts('unid'),plugins:{legend:{display:false}}}
+  });
+
+  const today = new Date();
+  document.getElementById('tbody-lotes').innerHTML = DB.produccion.slice(-5).reverse().map(r => {
+    const fv = new Date(r.fecha); fv.setDate(fv.getDate()+3);
+    const dias = Math.ceil((fv-today)/86400000);
+    return `<tr>
+      <td class="mono">${r.lote}</td><td>${r.fecha}</td>
+      <td>${fv.toISOString().split('T')[0]}</td>
+      <td class="num">${Math.floor(r.kgEmp/5)} bolsas</td>
+      <td><span class="badge ${dias>1?'badge-green':'badge-red'}">${dias>0?`${dias}d restantes`:'Vencido'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════
+   GASTOS
+══════════════════════════════════════════ */
+function renderGastos() {
+  const totalG = DB.gastos.reduce((a,g)=>a+g.monto,0);
+  const thisMonth = new Date().getMonth();
+  const gastosMes = DB.gastos.filter(g=>new Date(g.fecha).getMonth()===thisMonth).reduce((a,g)=>a+g.monto,0);
+
+  document.getElementById('gastos-kpis').innerHTML = `
+    <div class="kpi-card red"><div class="kpi-label">Gastos totales</div><div class="kpi-val red">${fmtS(totalG,2)}</div></div>
+    <div class="kpi-card amber"><div class="kpi-label">Gastos este mes</div><div class="kpi-val amber">${fmtS(gastosMes,2)}</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Registros</div><div class="kpi-val blue">${DB.gastos.length}</div></div>
+  `;
+
+  document.getElementById('tbody-gastos').innerHTML = DB.gastos.slice().reverse().map(g =>
+    `<tr>
+      <td>${g.fecha}</td><td><span class="badge badge-blue">${g.cat}</span></td>
+      <td>${g.concepto}</td><td class="num">${fmtS(g.monto,2)}</td>
+      <td class="mono" style="font-size:11px">${g.comp}</td>
+      <td><button class="btn-ghost btn-sm" onclick="deleteRec('gastos','${g.id}',renderGastos)">✕</button></td>
+    </tr>`
+  ).join('');
+
+  const catMap = {};
+  DB.gastos.forEach(g => { catMap[g.cat] = (catMap[g.cat]||0) + g.monto; });
+  mkChart('c-gastos-cat', {
+    type:'doughnut',
+    data:{labels:Object.keys(catMap),datasets:[{data:Object.values(catMap),backgroundColor:['#3b82f6','#06b6d4','#f59e0b','#22c55e','#8b5cf6','#ef4444','#ec4899'],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#8b949e',font:{size:10},boxWidth:8,padding:6}}}}
+  });
+
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const gm = new Array(12).fill(0);
+  DB.gastos.forEach(g => { gm[new Date(g.fecha).getMonth()] += g.monto; });
+  mkChart('c-gastos-mes', {type:'bar',data:{labels:meses,datasets:[{label:'Gastos S/',data:gm,backgroundColor:'rgba(239,68,68,0.6)',borderRadius:3}]},options:chartOpts('S/')});
+}
+
+/* ═══════════════════════════════════════════
+   COBRANZAS
+══════════════════════════════════════════ */
+function renderCobranzas() {
+  const pend = DB.cobranzas.filter(c=>!c.pagado);
+  const totalPend = pend.reduce((a,c)=>a+c.monto,0);
+  const today = new Date();
+
+  document.getElementById('cobro-kpis').innerHTML = `
+    <div class="kpi-card amber"><div class="kpi-label">Por cobrar</div><div class="kpi-val amber">${fmtS(totalPend,2)}</div><div class="kpi-sub">${pend.length} facturas pendientes</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Vencidas</div><div class="kpi-val red">${pend.filter(c=>new Date(c.fechaVenc)<today).length}</div><div class="kpi-sub">DSO > 7 días</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Cobrado histór.</div><div class="kpi-val green">${fmtS(DB.cobranzas.filter(c=>c.pagado).reduce((a,c)=>a+c.monto,0),2)}</div></div>
+  `;
+
+  document.getElementById('tbody-cobros').innerHTML = pend.map(c => {
+    const cl = getCliente(c.clienteId);
+    const dias = Math.ceil((today - new Date(c.fechaVenc))/86400000);
+    return `<tr>
+      <td><strong>${cl.nombre}</strong></td><td class="mono">${c.ventaId}</td>
+      <td>${c.fechaVenta}</td><td>${c.fechaVenc}</td>
+      <td class="num">${fmtS(c.monto,2)}</td>
+      <td class="num"><span class="badge ${dias>0?'badge-red':'badge-amber'}">${dias>0?'+'+dias+' días':'Vence hoy'}</span></td>
+      <td><span class="badge badge-amber">Pendiente</span></td>
+      <td><button class="btn-primary btn-sm" onclick="marcarPagado('${c.id}')">Cobrado</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function marcarPagado(id) {
+  const c = DB.cobranzas.find(x=>x.id===id);
+  if (c) { c.pagado = true; const cl = DB.clientes.find(x=>x.id===c.clienteId); if(cl) cl.deuda=Math.max(0,cl.deuda-c.monto); }
+  saveData(); renderCobranzas();
+}
+
+/* ═══════════════════════════════════════════
+   SIMULADOR
+══════════════════════════════════════════ */
+function runSim() {
+  const bolsas = parseInt(document.getElementById('s-bolsas').value);
+  const precio = parseFloat(document.getElementById('s-precio').value);
+  const merma = parseInt(document.getElementById('s-merma').value);
+  const luz = parseFloat(document.getElementById('s-luz').value);
+  const mo = parseInt(document.getElementById('s-mo').value);
+  const fijos = parseInt(document.getElementById('s-fijos').value);
+  const capex = parseInt(document.getElementById('s-capex').value);
+
+  document.getElementById('o-bolsas').textContent = fmt(bolsas);
+  document.getElementById('o-precio').textContent = 'S/ ' + precio.toFixed(2);
+  document.getElementById('o-merma').textContent = merma + '%';
+  document.getElementById('o-luz').textContent = luz.toFixed(2);
+  document.getElementById('o-mo').textContent = 'S/ ' + fmt(mo);
+  document.getElementById('o-fijos').textContent = 'S/ ' + fmt(fijos);
+  document.getElementById('o-capex').textContent = 'S/ ' + fmt(capex);
+
+  const kgDia = bolsas / 30 * 5;
+  const energiaMes = kgDia * 0.162 * 30 * luz;
+  const aguaMes = kgDia * 30 * 1.7 * 0.0025;
+  const bolsasCosto = bolsas * 0.10;
+  const mermaCosto = (energiaMes + aguaMes) * merma / 100;
+  const distrib = 25 * 30;
+  const cvar = energiaMes + aguaMes + bolsasCosto + mermaCosto + distrib + mo;
+  const ing = bolsas * precio;
+  const util = ing - cvar - fijos;
+  const margen = ing > 0 ? util / ing * 100 : 0;
+  const cvUnit = cvar / bolsas;
+  const be = cvUnit < precio ? Math.ceil((fijos + mo) / (precio - cvUnit)) : 9999;
+  const payback = util > 0 ? capex / util : 999;
+
+  document.getElementById('kpi-sim').innerHTML = `
+    <div class="kpi-card blue"><div class="kpi-label">Ingresos/mes</div><div class="kpi-val blue">${fmtS(ing)}</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Costos variables</div><div class="kpi-val red">${fmtS(cvar)}</div></div>
+    <div class="kpi-card ${util>0?'green':'red'}"><div class="kpi-label">Utilidad neta</div><div class="kpi-val ${util>0?'green':'red'}">${fmtS(util)}</div></div>
+    <div class="kpi-card ${margen>20?'green':margen>0?'amber':'red'}"><div class="kpi-label">Margen neto</div><div class="kpi-val ${margen>20?'green':'amber'}">${margen.toFixed(0)}%</div></div>
+    <div class="kpi-card cyan"><div class="kpi-label">Break-even</div><div class="kpi-val cyan">${be<5000?fmt(be):'N/A'}</div><div class="kpi-sub">bolsas/mes</div></div>
+    <div class="kpi-card ${payback<24?'green':payback<36?'amber':'red'}"><div class="kpi-label">Payback</div><div class="kpi-val ${payback<24?'green':'amber'}">${payback<100?payback.toFixed(0):'> 48'}</div><div class="kpi-sub">meses</div></div>
+  `;
+
+  const sal = document.getElementById('sim-alertas');
+  sal.innerHTML = '';
+  if (util < 0) sal.innerHTML += `<div class="alert alert-red"><span>✕</span> Pérdida de ${fmtS(Math.abs(util))}/mes. Aumentar volumen o reducir MO.</div>`;
+  if (merma > 10) sal.innerHTML += `<div class="alert alert-amber"><span>⚠</span> Merma alta (${merma}%). Verificar temperatura de almacenamiento.</div>`;
+  if (luz > 0.85) sal.innerHTML += `<div class="alert alert-amber"><span>⚠</span> Tarifa eléctrica elevada. Considerar producción en horario nocturno.</div>`;
+  if (util > 1500) sal.innerHTML += `<div class="alert alert-green"><span>✓</span> Excelente resultado. Evaluar escalar a máquina 200 kg/día.</div>`;
+
+  const rng = Array.from({length:12},(_,i)=>(i+1)*100);
+  mkChart('c-sens', {
+    type:'line',
+    data:{labels:rng,datasets:[
+      {label:'Precio actual',data:rng.map(b=>Math.round(b*precio-(cvar/bolsas)*b-fijos)),borderColor:'#3b82f6',tension:0.3,pointRadius:0,borderWidth:2},
+      {label:'Precio +S/1',data:rng.map(b=>Math.round(b*(precio+1)-(cvar/bolsas)*b-fijos)),borderColor:'#22c55e',tension:0.3,pointRadius:0,borderWidth:1.5,borderDash:[4,3]},
+      {label:'Precio -S/1',data:rng.map(b=>Math.round(b*(precio-1)-(cvar/bolsas)*b-fijos)),borderColor:'#ef4444',tension:0.3,pointRadius:0,borderWidth:1.5,borderDash:[4,3]},
+    ]},
+    options:{...chartOpts('S/'),plugins:{legend:{display:false}}}
+  });
+
+  let acum = -capex;
+  const flujoData = [acum];
+  for(let i=0;i<12;i++){ acum+=util; flujoData.push(Math.round(acum)); }
+  mkChart('c-flujo', {
+    type:'line',
+    data:{labels:['M0',...MES],datasets:[{
+      label:'Flujo acum.',data:flujoData,
+      borderColor: flujoData[flujoData.length-1]>0?'#22c55e':'#f59e0b',
+      backgroundColor:'rgba(59,130,246,0.06)',fill:true,tension:0.3,pointRadius:3,
+      segment:{borderColor:ctx=>ctx.p1.parsed.y<0?'#ef4444':'#22c55e'}
+    }]},
+    options:{...chartOpts('S/'),plugins:{legend:{display:false}}}
+  });
+}
+
+/* ═══════════════════════════════════════════
+   REPORTES
+══════════════════════════════════════════ */
+function showReportTab(t) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('rtab-'+t).classList.add('active');
+  event.target.classList.add('active');
+  if(t==='er') renderER();
+  if(t==='kpis') renderKPIsAnual();
+  if(t==='payback') renderPayback();
+}
+
+function renderReportes() { renderER(); }
+
+function renderER() {
+  const rows = [
+    ['Bolsas vendidas (5kg equiv.)', ...ESC_BASE],
+    ['Ingresos (S/ 6/bolsa)', ...ESC_BASE.map(b=>b*6)],
+    ['Costos variables', ...ESC_BASE.map(b=>b*2.8)],
+    ['Margen de contribución', ...ESC_BASE.map(b=>b*6-b*2.8)],
+    ['Costos fijos', ...new Array(12).fill(800)],
+    ['Utilidad operativa', ...ESC_BASE.map(b=>b*6-b*2.8-800)],
+    ['Margen neto %', ...ESC_BASE.map(b=>Math.max(0,Math.round((b*6-b*2.8-800)/(b*6)*100))+'%')],
+  ];
+  const rowColors = [null,null,null,null,null,null,null];
+  document.getElementById('tbl-er').innerHTML =
+    `<thead><tr><th>Concepto</th>${MES.map(m=>`<th class="num">${m}</th>`).join('')}</tr></thead>` +
+    `<tbody>${rows.map((r,i)=>{
+      const isUtil = r[0].includes('Utilidad');
+      return `<tr style="${isUtil?'font-weight:600;background:rgba(34,197,94,0.05)':''}">` +
+        r.map((v,j)=>j===0?`<td>${v}</td>`:`<td class="num" style="color:${isUtil&&+v.toString().replace('%','')<0?'#ef4444':''}">${typeof v==='number'?fmtS(v):v}</td>`).join('') +
+        `</tr>`;
+    }).join('')}</tbody>`;
+}
+
+function renderKPIsAnual() {
+  document.getElementById('rep-kpis').innerHTML = `
+    <div class="kpi-card green"><div class="kpi-label">Ingresos año 1</div><div class="kpi-val green">${fmtS(ESC_BASE.reduce((a,b)=>a+b*6,0))}</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Utilidad año 1</div><div class="kpi-val blue">${fmtS(ESC_BASE.reduce((a,b)=>a+b*6-b*2.8-800,0))}</div></div>
+    <div class="kpi-card amber"><div class="kpi-label">Margen prom.</div><div class="kpi-val amber">28%</div></div>
+    <div class="kpi-card cyan"><div class="kpi-label">Bolsas año 1</div><div class="kpi-val cyan">${fmt(ESC_BASE.reduce((a,b)=>a+b,0))}</div></div>
+  `;
+  mkChart('c-kpis-anual', {
+    type:'bar',
+    data:{labels:MES,datasets:[
+      {label:'Ingresos',data:ESC_BASE.map(b=>b*6),backgroundColor:'rgba(59,130,246,0.5)',borderRadius:3},
+      {label:'Utilidad',data:ESC_BASE.map(b=>Math.max(0,b*6-b*2.8-800)),backgroundColor:'rgba(34,197,94,0.7)',borderRadius:3},
+    ]},
+    options:{...chartOpts('S/'),plugins:{legend:{labels:{color:'#8b949e',font:{size:11}}}}}
+  });
+}
+
+function renderPayback() {
+  const capex = 15550; const util = 1120;
+  let acum = -capex; const data = [acum];
+  for(let i=0;i<24;i++){ acum+=util; data.push(Math.round(acum)); }
+  const pb = data.findIndex(v=>v>=0);
+  document.getElementById('pb-kpis').innerHTML = `
+    <div class="kpi-card green"><div class="kpi-label">Payback estimado</div><div class="kpi-val green">${pb} meses</div><div class="kpi-sub">Escenario base</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Inversión total</div><div class="kpi-val blue">${fmtS(capex)}</div></div>
+    <div class="kpi-card amber"><div class="kpi-label">ROI año 1</div><div class="kpi-val amber">8%</div></div>
+    <div class="kpi-card cyan"><div class="kpi-label">ROI año 2</div><div class="kpi-val cyan">28%</div></div>
+  `;
+  mkChart('c-payback', {
+    type:'line',
+    data:{labels:['M0',...Array.from({length:24},(_,i)=>'M'+(i+1))],datasets:[
+      {label:'Flujo acumulado S/',data,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.06)',fill:true,tension:0.3,pointRadius:2,segment:{borderColor:ctx=>ctx.p1.parsed.y<0?'#ef4444':'#22c55e'}},
+      {label:'Break-even (S/0)',data:new Array(25).fill(0),borderColor:'rgba(255,255,255,0.2)',borderDash:[4,3],pointRadius:0}
+    ]},
+    options:{...chartOpts('S/'),plugins:{legend:{display:false}}}
+  });
+}
+
+function exportCSV() {
+  const rows = [['Mes','Ingresos','CostosVar','MargenContrib','CostosFijos','Utilidad']];
+  ESC_BASE.forEach((b,i)=>rows.push([`Mes ${i+1}`,b*6,b*2.8,b*6-b*2.8,800,b*6-b*2.8-800]));
+  const csv = rows.map(r=>r.join(',')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = 'hieloapp-estado-resultados.csv'; a.click();
+}
+
+/* ═══════════════════════════════════════════
+   MODELO DE DATOS
+══════════════════════════════════════════ */
+function renderModelo() {
+  const tablas = [
+    {name:'DIM_Clientes',type:'dim',fields:['cliente_id PK','nombre','tipo_cliente','zona','canal','telefono','activo']},
+    {name:'DIM_Productos',type:'dim',fields:['producto_id PK','nombre','peso_kg','precio_lista','costo_std']},
+    {name:'DIM_Rutas',type:'dim',fields:['ruta_id PK','nombre_ruta','zona','km','tiempo_min']},
+    {name:'DIM_Activos',type:'dim',fields:['activo_id PK','nombre','fecha_compra','valor','vida_util']},
+    {name:'FACT_Produccion',type:'fact',fields:['prod_id PK','fecha','lote_id FK','kg_producidos','kg_empacados','kg_merma','kwh']},
+    {name:'FACT_Lotes',type:'fact',fields:['lote_id PK','fecha_prod','fecha_venc','bolsas','producto_id FK']},
+    {name:'FACT_Inventario',type:'fact',fields:['inv_id PK','fecha','lote_id FK','producto_id FK','cantidad']},
+    {name:'FACT_Ventas',type:'fact',fields:['venta_id PK','fecha','cliente_id FK','producto_id FK','qty','total']},
+    {name:'FACT_Entregas',type:'fact',fields:['entrega_id PK','venta_id FK','ruta_id FK','fecha','estado','temp']},
+    {name:'FACT_Mermas',type:'fact',fields:['merma_id PK','lote_id FK','fecha','kg_merma','causa']},
+    {name:'FACT_Gastos',type:'fact',fields:['gasto_id PK','fecha','categoria','monto','ruta_id FK']},
+    {name:'FACT_Mantenimiento',type:'fact',fields:['mant_id PK','activo_id FK','fecha','tipo','costo']},
+    {name:'FACT_Cobranzas',type:'fact',fields:['cobro_id PK','venta_id FK','cliente_id FK','monto','fecha_venc','pagado']},
+    {name:'FACT_Compras',type:'fact',fields:['compra_id PK','fecha','insumo','proveedor','monto']},
+  ];
+  document.getElementById('er-grid').innerHTML = tablas.map(t => `
+    <div class="er-table">
+      <div class="er-head ${t.type}">${t.type==='dim'?'◈':'▦'} ${t.name}</div>
+      ${t.fields.map(f => {
+        const isPK = f.includes('PK'), isFK = f.includes('FK');
+        return `<div class="er-field"><span>${f.replace(' PK','').replace(' FK','')}</span><span>${isPK?'<span class="er-pk">PK</span>':isFK?'<span class="er-fk">FK</span>':''}</span></div>`;
+      }).join('')}
+    </div>
+  `).join('');
+}
+
+/* ═══════════════════════════════════════════
+   RIESGOS
+══════════════════════════════════════════ */
+function renderRiesgos() {
+  const risks = [
+    {r:'Falla de máquina de hielo (compresor)',cat:'Operativo',prob:'Media',imp:'Alto',nivel:'red'},
+    {r:'Baja demanda en invierno (-30%)',cat:'Mercado',prob:'Alta',imp:'Medio',nivel:'red'},
+    {r:'Multa por falta de licencia/sanitario',cat:'Legal',prob:'Media',imp:'Alto',nivel:'red'},
+    {r:'Morosidad de clientes',cat:'Financiero',prob:'Alta',imp:'Medio',nivel:'red'},
+    {r:'Competidor nuevo con precio agresivo',cat:'Mercado',prob:'Media',imp:'Medio',nivel:'amber'},
+    {r:'Corte de energía > 4 horas',cat:'Operativo',prob:'Baja',imp:'Alto',nivel:'amber'},
+    {r:'Alza tarifa eléctrica > 20%',cat:'Financiero',prob:'Media',imp:'Medio',nivel:'amber'},
+    {r:'Contaminación del hielo',cat:'Sanitario',prob:'Baja',imp:'Muy Alto',nivel:'red'},
+  ];
+  document.getElementById('risk-rows').innerHTML = risks.map(r => `
+    <div class="risk-row">
+      <div>${r.r} <span class="risk-cat">(${r.cat})</span></div>
+      <div><span class="badge ${r.prob==='Alta'?'badge-red':r.prob==='Media'?'badge-amber':'badge-blue'}">${r.prob}</span></div>
+      <div><span class="badge ${r.imp.includes('Alto')?'badge-red':'badge-amber'}">${r.imp}</span></div>
+      <div><span class="badge ${r.nivel==='red'?'badge-red':'badge-amber'}">${r.nivel==='red'?'Crítico':'Medio'}</span></div>
+    </div>
+  `).join('');
+
+  mkChart('c-riesgo', {
+    type:'bubble',
+    data:{datasets:[
+      {label:'Operativo',data:[{x:2,y:3,r:14},{x:1,y:3,r:10}],backgroundColor:'rgba(59,130,246,0.6)'},
+      {label:'Mercado',data:[{x:3,y:2,r:14},{x:2,y:2,r:10}],backgroundColor:'rgba(34,197,94,0.6)'},
+      {label:'Legal',data:[{x:2,y:3,r:13}],backgroundColor:'rgba(239,68,68,0.6)'},
+      {label:'Financiero',data:[{x:3,y:2,r:13},{x:2,y:2,r:10}],backgroundColor:'rgba(245,158,11,0.6)'},
+      {label:'Sanitario',data:[{x:1,y:4,r:16}],backgroundColor:'rgba(163,45,45,0.7)'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:20},
+      plugins:{legend:{labels:{color:'#8b949e',font:{size:11}}}},
+      scales:{
+        x:{title:{display:true,text:'Probabilidad →',color:'#8b949e',font:{size:11}},min:0,max:4,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#8b949e',callback:v=>['','Baja','Media','Alta',''][v]||''}},
+        y:{title:{display:true,text:'Impacto →',color:'#8b949e',font:{size:11}},min:0,max:5,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#8b949e',callback:v=>['','Bajo','Medio','Alto','M.Alto',''][v]||''}}
+      }}
+  });
+}
+
+/* ═══════════════════════════════════════════
+   CHART OPTIONS HELPER
+══════════════════════════════════════════ */
+function chartOpts(unit='') {
+  return {
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#8b949e',font:{size:11},boxWidth:10,padding:10}}},
+    scales:{
+      y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#8b949e',font:{size:11},callback:v=>unit==='S/'?'S/'+fmt(v):unit==='%'?v+'%':fmt(v)+' '+unit}},
+      x:{grid:{display:false},ticks:{color:'#8b949e',font:{size:11},autoSkip:false,maxRotation:0}}
+    }
+  };
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+loadData();
+renderDashboard();
+setInterval(saveData, 30000);
+</script>
+</body>
+</html>
