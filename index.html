@@ -634,13 +634,11 @@ function setSyncStatus(state, msg){
 /* ── API CALLS ── */
 async function apiGet(sheet){
   if(!IS_CONFIGURED) return [];
-  const url = API_URL + '?sheet=' + encodeURIComponent(sheet) + '&action=getAll&_=' + Date.now();
+  // corsproxy.io agrega headers CORS — resuelve el bloqueo de GitHub Pages
+  const target = API_URL + '?sheet=' + encodeURIComponent(sheet) + '&action=getAll';
+  const url = 'https://corsproxy.io/?' + encodeURIComponent(target);
   try {
-    const r = await fetch(url, {
-      method: 'GET',
-      credentials: 'omit',
-      cache: 'no-store'
-    });
+    const r = await fetch(url);
     const txt = await r.text();
     const j = JSON.parse(txt.trim());
     if(j.error) throw new Error(j.error);
@@ -653,13 +651,14 @@ async function apiGet(sheet){
 
 async function apiPost(payload){
   if(!IS_CONFIGURED) return {ok:false};
-  // Escritura por GET — Apps Script v5 acepta insert/update/delete por GET
+  // Escritura por GET via corsproxy.io — mismo proxy para consistencia
   const record = payload.record ? encodeURIComponent(JSON.stringify(payload.record)) : '';
-  let url = API_URL
+  let target = API_URL
     + '?sheet='  + encodeURIComponent(payload.sheet)
     + '&action=' + encodeURIComponent(payload.action);
-  if(record)     url += '&record=' + record;
-  if(payload.id) url += '&id=' + encodeURIComponent(String(payload.id));
+  if(record)     target += '&record=' + record;
+  if(payload.id) target += '&id=' + encodeURIComponent(String(payload.id));
+  const url = 'https://corsproxy.io/?' + encodeURIComponent(target);
   try {
     const r = await fetch(url);
     const txt = await r.text();
