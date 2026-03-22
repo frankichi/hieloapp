@@ -633,71 +633,36 @@ function setSyncStatus(state, msg){
 /* ── API CALLS ── */
 async function apiGet(sheet){
   if(!IS_CONFIGURED) return [];
-  // JSONP: inyecta un <script> que llama callback — evita CORS 100%
-  return new Promise((resolve, reject) => {
-    const cbName = 'cb_' + sheet + '_' + Date.now();
-    const script = document.createElement('script');
-    const url = API_URL + '?sheet=' + encodeURIComponent(sheet) +
-                '&action=getAll&callback=' + cbName;
-    
-    const timer = setTimeout(() => {
-      cleanup();
-      reject(new Error('Timeout ' + sheet));
-    }, 15000);
-
-    window[cbName] = function(data) {
-      cleanup();
-      if(data && data.error) reject(new Error(data.error));
-      else resolve(Array.isArray(data.data) ? data.data : []);
-    };
-
-    function cleanup(){
-      clearTimeout(timer);
-      delete window[cbName];
-      if(script.parentNode) script.parentNode.removeChild(script);
-    }
-
-    script.onerror = () => { cleanup(); reject(new Error('Script error ' + sheet)); };
-    script.src = url;
-    document.head.appendChild(script);
-  });
+  const url = API_URL + '?sheet=' + encodeURIComponent(sheet) + '&action=getAll';
+  try {
+    const r = await fetch(url); // sin mode ni headers — el browser sigue el redirect solo
+    const txt = await r.text();
+    const j = JSON.parse(txt.trim());
+    if(j.error) throw new Error(j.error);
+    return Array.isArray(j.data) ? j.data : [];
+  } catch(e) {
+    console.warn('apiGet ['+sheet+']:', e.message);
+    throw e;
+  }
 }
 
 async function apiPost(payload){
   if(!IS_CONFIGURED) return {ok:false};
-  // Usar GET con parámetros — Apps Script v5 acepta escrituras por GET también
-  // Esto evita todos los problemas de CORS con POST
-  return new Promise((resolve) => {
-    const cbName = 'cbw_' + Date.now();
-    const script = document.createElement('script');
-    const record = payload.record ? encodeURIComponent(JSON.stringify(payload.record)) : '';
-    let url = API_URL
-      + '?sheet='   + encodeURIComponent(payload.sheet)
-      + '&action='  + encodeURIComponent(payload.action)
-      + '&callback='+ cbName;
-    if (record)     url += '&record=' + record;
-    if (payload.id) url += '&id=' + encodeURIComponent(payload.id);
-
-    const timer = setTimeout(() => {
-      cleanup();
-      resolve({ ok: false, error: 'Timeout' });
-    }, 15000);
-
-    window[cbName] = function(data) {
-      cleanup();
-      resolve(data || { ok: true });
-    };
-
-    function cleanup(){
-      clearTimeout(timer);
-      delete window[cbName];
-      if(script.parentNode) script.parentNode.removeChild(script);
-    }
-
-    script.onerror = () => { cleanup(); resolve({ ok: false, error: 'Script error' }); };
-    script.src = url;
-    document.head.appendChild(script);
-  });
+  // Escritura por GET — Apps Script v5 acepta insert/update/delete por GET
+  const record = payload.record ? encodeURIComponent(JSON.stringify(payload.record)) : '';
+  let url = API_URL
+    + '?sheet='  + encodeURIComponent(payload.sheet)
+    + '&action=' + encodeURIComponent(payload.action);
+  if(record)     url += '&record=' + record;
+  if(payload.id) url += '&id=' + encodeURIComponent(String(payload.id));
+  try {
+    const r = await fetch(url);
+    const txt = await r.text();
+    return JSON.parse(txt.trim());
+  } catch(e) {
+    console.warn('apiPost:', e.message);
+    return { ok: false, error: e.message };
+  }
 }
 
 /* ── CARGA COMPLETA DE DATOS ── */
@@ -707,18 +672,24 @@ async function syncAll(){
   setSyncStatus('syncing','Sincronizando...');
   if(!IS_CONFIGURED){
     setSyncStatus('offline','API no configurada');
-    sincing=false; return;
+    syncing=false; return;
   }
   try{
-    // Fetch secuencial — más lento pero sin problemas de concurrencia
-    const clientes   = await apiGet('clientes');
-    const produccion = await apiGet('produccion');
-    const ventas     = await apiGet('ventas');
-    const entregas   = await apiGet('entregas');
-    const gastos     = await apiGet('gastos');
-    const cobranzas  = await apiGet('cobranzas');
+    // Fetch con timeout de 20s por hoja
+    function fetchSheet(name){
+      return Promise.race([
+        apiGet(name),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout '+name)),20000))
+      ]);
+    }
 
-    // Asignar siempre — el array vacío [] también es válido (hoja vacía)
+    const clientes   = await fetchSheet('clientes');
+    const produccion = await fetchSheet('produccion');
+    const ventas     = await fetchSheet('ventas');
+    const entregas   = await fetchSheet('entregas');
+    const gastos     = await fetchSheet('gastos');
+    const cobranzas  = await fetchSheet('cobranzas');
+
     DB.clientes   = clientes;
     DB.produccion = produccion;
     DB.ventas     = ventas;
