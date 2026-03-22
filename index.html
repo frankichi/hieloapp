@@ -616,27 +616,47 @@ async function apiGet(sheet){
 }
 
 async function apiPost(payload){
-  if(!IS_CONFIGURED){
-    console.warn('API no configurada — solo modo local');
-    return {ok:false};
-  }
-  try{
-    // Usamos GET con parámetros para evitar bloqueos CORS con POST
-    const action = payload.action;
-    const sheet  = payload.sheet;
-    let url = API_URL + '?sheet=' + encodeURIComponent(sheet) + '&action=' + encodeURIComponent(action);
-    if(payload.record){
-      url += '&record=' + encodeURIComponent(JSON.stringify(payload.record));
+  if(!IS_CONFIGURED) return {ok:false};
+  // Usamos iframe + form para evitar CORS — funciona siempre con Apps Script
+  return new Promise((resolve)=>{
+    try{
+      const iframeId = 'api_iframe_'+Date.now();
+      const formId   = 'api_form_'+Date.now();
+
+      const iframe = document.createElement('iframe');
+      iframe.name = iframeId;
+      iframe.id   = iframeId;
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = API_URL;
+      form.target = iframeId;
+      form.style.display = 'none';
+
+      // Enviar payload como JSON en un campo oculto
+      const input = document.createElement('input');
+      input.type  = 'hidden';
+      input.name  = 'payload';
+      input.value = JSON.stringify(payload);
+      form.appendChild(input);
+
+      document.body.appendChild(form);
+
+      // Limpiar después de 5 segundos
+      setTimeout(()=>{
+        try{ document.body.removeChild(form); }catch(e){}
+        try{ document.body.removeChild(iframe); }catch(e){}
+        resolve({ok:true, action:'sent'});
+      }, 2000);
+
+      form.submit();
+    }catch(e){
+      console.error('apiPost error',e);
+      resolve({ok:false, error:e.toString()});
     }
-    if(payload.id){
-      url += '&id=' + encodeURIComponent(payload.id);
-    }
-    if(payload.rows){
-      url += '&rows=' + encodeURIComponent(JSON.stringify(payload.rows));
-    }
-    const r = await fetch(url);
-    return await r.json();
-  }catch(e){ console.error('API error',e); return {ok:false,error:e.toString()}; }
+  });
 }
 
 /* ── CARGA COMPLETA DE DATOS ── */
@@ -789,6 +809,7 @@ async function saveVenta(){
     };
     await apiPost({sheet:'ventas',action:'insert',record:rec});
     DB.ventas.push(rec);
+    setTimeout(async()=>{ await syncAll(); renderVentas(); }, 3000);
     if(pago==='Crédito 7 días'){
       const fv=new Date(rec.fecha); fv.setDate(fv.getDate()+7);
       const cobro={id:uid('CO'),clienteId:rec.clienteId,ventaId:rec.id,
@@ -829,7 +850,11 @@ async function saveCliente(){
       comprasMes:0,deuda:0,activo:true
     };
     await apiPost({sheet:'clientes',action:'insert',record:rec});
-    DB.clientes.push(rec); closeModal('modal-cliente'); renderClientes();
+    DB.clientes.push(rec);
+    closeModal('modal-cliente');
+    renderClientes();
+    // Esperar 3 seg para que Sheets procese, luego sync
+    setTimeout(async()=>{ await syncAll(); renderClientes(); }, 3000);
   });
 }
 
