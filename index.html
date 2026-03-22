@@ -635,15 +635,16 @@ async function apiGet(sheet){
   if(!IS_CONFIGURED) return [];
   try{
     const url = API_URL+'?sheet='+encodeURIComponent(sheet)+'&action=getAll&t='+Date.now();
-    const r = await fetch(url);
-    if(!r.ok) throw new Error('HTTP '+r.status);
+    const r = await fetch(url, { redirect:'follow', mode:'cors' });
     const text = await r.text();
-    const j = JSON.parse(text);
+    // Limpiar posible BOM o espacios
+    const clean = text.trim().replace(/^\uFEFF/,'');
+    const j = JSON.parse(clean);
     if(j.error) throw new Error('Sheets: '+j.error);
     return Array.isArray(j.data) ? j.data : [];
   }catch(e){
     console.error('apiGet error ['+sheet+']:',e.message);
-    throw e; // propagar para que allSettled lo capture
+    throw e;
   }
 }
 
@@ -671,41 +672,43 @@ async function syncAll(){
   if(syncing) return;
   syncing=true;
   setSyncStatus('syncing','Sincronizando...');
-  // Sin loading bloqueante — solo cambio en el sidebar
-
   if(!IS_CONFIGURED){
     setSyncStatus('offline','API no configurada');
-    showConfigBanner();
-    syncing=false;
-    return;
+    sincing=false; return;
   }
-
   try{
-    // Traer cada hoja individualmente para aislar errores
-    const resultados = await Promise.allSettled([
-      apiGet('produccion'), apiGet('ventas'), apiGet('clientes'),
-      apiGet('entregas'), apiGet('gastos'), apiGet('cobranzas')
-    ]);
-    
-    const [rProd, rVentas, rClientes, rEntregas, rGastos, rCobros] = resultados;
-    
-    // Actualizar DB solo con los que llegaron bien
-    if(rProd.status==='fulfilled'     && Array.isArray(rProd.value))     DB.produccion = rProd.value;
-    if(rVentas.status==='fulfilled'   && Array.isArray(rVentas.value))   DB.ventas     = rVentas.value;
-    if(rClientes.status==='fulfilled' && Array.isArray(rClientes.value)) DB.clientes   = rClientes.value;
-    if(rEntregas.status==='fulfilled' && Array.isArray(rEntregas.value)) DB.entregas   = rEntregas.value;
-    if(rGastos.status==='fulfilled'   && Array.isArray(rGastos.value))   DB.gastos     = rGastos.value;
-    if(rCobros.status==='fulfilled'   && Array.isArray(rCobros.value))   DB.cobranzas  = rCobros.value;
+    // Fetch secuencial — más lento pero sin problemas de concurrencia
+    const clientes   = await apiGet('clientes');
+    const produccion = await apiGet('produccion');
+    const ventas     = await apiGet('ventas');
+    const entregas   = await apiGet('entregas');
+    const gastos     = await apiGet('gastos');
+    const cobranzas  = await apiGet('cobranzas');
+
+    // Asignar siempre — el array vacío [] también es válido (hoja vacía)
+    DB.clientes   = clientes;
+    DB.produccion = produccion;
+    DB.ventas     = ventas;
+    DB.entregas   = entregas;
+    DB.gastos     = gastos;
+    DB.cobranzas  = cobranzas;
 
     document.getElementById('last-sync').textContent =
       'Sync: '+new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
     setSyncStatus('online','Conectado · Google Sheets');
     initCounters();
-    renderCurrentPage();
-
+    // Renderizar la página actualmente visible
+    const activePage = document.querySelector('.page.active');
+    if(activePage){
+      const pageId = activePage.id.replace('page-','');
+      currentPage = pageId;
+      renderPage(pageId);
+    } else {
+      renderCurrentPage();
+    }
   }catch(e){
     console.error('syncAll error:',e);
-    setSyncStatus('offline','Error: '+e.message);
+    setSyncStatus('offline','Error de conexión');
   }
   syncing=false;
 }
