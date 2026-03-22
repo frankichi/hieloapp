@@ -659,12 +659,13 @@ async function syncAll(){
       apiGet('produccion'), apiGet('ventas'), apiGet('clientes'),
       apiGet('entregas'), apiGet('gastos'), apiGet('cobranzas')
     ]);
-    DB.produccion = prod;
-    DB.ventas     = ventas;
-    DB.clientes   = clientes;
-    DB.entregas   = entregas;
-    DB.gastos     = gastos;
-    DB.cobranzas  = cobros;
+    // Solo actualizar si Sheets devuelve datos reales — nunca sobreescribir con array vacío
+    if(prod.length > 0)     DB.produccion = prod;
+    if(ventas.length > 0)   DB.ventas     = ventas;
+    if(clientes.length > 0) DB.clientes   = clientes;
+    if(entregas.length > 0) DB.entregas   = entregas;
+    if(gastos.length > 0)   DB.gastos     = gastos;
+    if(cobros.length > 0)   DB.cobranzas  = cobros;
 
     // Sin seed automático — la app arranca limpia con Sheets
 
@@ -1137,7 +1138,7 @@ if(!IS_CONFIGURED){
   renderDashboard();
 } else {
   syncAll();
-  setInterval(syncAll, 60000); // auto-sync cada 60 segundos
+  // auto-sync desactivado — usar botón manual para evitar race conditions
 }
 </script>
 </body>
