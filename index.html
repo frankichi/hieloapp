@@ -621,13 +621,22 @@ async function apiPost(payload){
     return {ok:false};
   }
   try{
-    const r=await fetch(API_URL,{
-      method:'POST',
-      body:JSON.stringify(payload),
-      headers:{'Content-Type':'text/plain'} // Apps Script requiere text/plain para evitar preflight CORS
-    });
+    // Usamos GET con parámetros para evitar bloqueos CORS con POST
+    const action = payload.action;
+    const sheet  = payload.sheet;
+    let url = API_URL + '?sheet=' + encodeURIComponent(sheet) + '&action=' + encodeURIComponent(action);
+    if(payload.record){
+      url += '&record=' + encodeURIComponent(JSON.stringify(payload.record));
+    }
+    if(payload.id){
+      url += '&id=' + encodeURIComponent(payload.id);
+    }
+    if(payload.rows){
+      url += '&rows=' + encodeURIComponent(JSON.stringify(payload.rows));
+    }
+    const r = await fetch(url);
     return await r.json();
-  }catch(e){ console.error('POST error',e); return {ok:false,error:e.toString()}; }
+  }catch(e){ console.error('API error',e); return {ok:false,error:e.toString()}; }
 }
 
 /* ── CARGA COMPLETA DE DATOS ── */
