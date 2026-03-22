@@ -634,10 +634,17 @@ function setSyncStatus(state, msg){
 async function apiGet(sheet){
   if(!IS_CONFIGURED) return [];
   try{
-    const r=await fetch(`${API_URL}?sheet=${sheet}&action=getAll`);
-    const j=await r.json();
-    return j.data||[];
-  }catch(e){ console.error('GET error',sheet,e); return []; }
+    const url = API_URL+'?sheet='+encodeURIComponent(sheet)+'&action=getAll&t='+Date.now();
+    const r = await fetch(url);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const text = await r.text();
+    const j = JSON.parse(text);
+    if(j.error) throw new Error('Sheets: '+j.error);
+    return Array.isArray(j.data) ? j.data : [];
+  }catch(e){
+    console.error('apiGet error ['+sheet+']:',e.message);
+    throw e; // propagar para que allSettled lo capture
+  }
 }
 
 async function apiPost(payload){
@@ -664,10 +671,9 @@ async function syncAll(){
   if(syncing) return;
   syncing=true;
   setSyncStatus('syncing','Sincronizando...');
-  showLoading('Sincronizando con Google Sheets...');
+  // Sin loading bloqueante — solo cambio en el sidebar
 
   if(!IS_CONFIGURED){
-    hideLoading();
     setSyncStatus('offline','API no configurada');
     showConfigBanner();
     syncing=false;
@@ -675,31 +681,32 @@ async function syncAll(){
   }
 
   try{
-    const [prod,ventas,clientes,entregas,gastos,cobros] = await Promise.all([
+    // Traer cada hoja individualmente para aislar errores
+    const resultados = await Promise.allSettled([
       apiGet('produccion'), apiGet('ventas'), apiGet('clientes'),
       apiGet('entregas'), apiGet('gastos'), apiGet('cobranzas')
     ]);
-    // Solo actualizar si Sheets devuelve datos reales — nunca sobreescribir con array vacío
-    if(prod.length > 0)     DB.produccion = prod;
-    if(ventas.length > 0)   DB.ventas     = ventas;
-    if(clientes.length > 0) DB.clientes   = clientes;
-    if(entregas.length > 0) DB.entregas   = entregas;
-    if(gastos.length > 0)   DB.gastos     = gastos;
-    if(cobros.length > 0)   DB.cobranzas  = cobros;
-
-    // Sin seed automático — la app arranca limpia con Sheets
+    
+    const [rProd, rVentas, rClientes, rEntregas, rGastos, rCobros] = resultados;
+    
+    // Actualizar DB solo con los que llegaron bien
+    if(rProd.status==='fulfilled'     && Array.isArray(rProd.value))     DB.produccion = rProd.value;
+    if(rVentas.status==='fulfilled'   && Array.isArray(rVentas.value))   DB.ventas     = rVentas.value;
+    if(rClientes.status==='fulfilled' && Array.isArray(rClientes.value)) DB.clientes   = rClientes.value;
+    if(rEntregas.status==='fulfilled' && Array.isArray(rEntregas.value)) DB.entregas   = rEntregas.value;
+    if(rGastos.status==='fulfilled'   && Array.isArray(rGastos.value))   DB.gastos     = rGastos.value;
+    if(rCobros.status==='fulfilled'   && Array.isArray(rCobros.value))   DB.cobranzas  = rCobros.value;
 
     document.getElementById('last-sync').textContent =
       'Sync: '+new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
     setSyncStatus('online','Conectado · Google Sheets');
-    initCounters(); // actualizar contadores con IDs existentes
-    // Re-render página actual
+    initCounters();
     renderCurrentPage();
+
   }catch(e){
-    console.error(e);
-    setSyncStatus('offline','Error de conexión');
+    console.error('syncAll error:',e);
+    setSyncStatus('offline','Error: '+e.message);
   }
-  hideLoading();
   syncing=false;
 }
 
@@ -1200,8 +1207,10 @@ if(!IS_CONFIGURED){
   hideLoading();
   renderDashboard();
 } else {
-  syncAll();
-  // auto-sync desactivado — usar botón manual para evitar race conditions
+  hideLoading();       // quitar pantalla de carga de inmediato
+  renderDashboard();   // mostrar dashboard aunque esté vacío
+  syncAll();           // traer datos de Sheets en background
+  setInterval(()=>{ if(!syncing) syncAll(); }, 120000); // auto-sync cada 2 min
 }
 </script>
 </body>
