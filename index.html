@@ -581,7 +581,32 @@ let syncing = false;
 /* ── HELPERS ── */
 const fmt  = (n,d=0) => Number(n).toLocaleString('es-PE',{minimumFractionDigits:d,maximumFractionDigits:d});
 const fmtS = (n,d=0) => 'S/ '+fmt(n,d);
-const uid  = p => p+Date.now().toString(36).toUpperCase().slice(-6);
+const _counters = {};
+const uid = (prefix) => {
+  const key = prefix;
+  if(!_counters[key]) _counters[key] = 1;
+  else _counters[key]++;
+  return key + String(_counters[key]).padStart(3,'0');
+};
+// Inicializar contadores según datos existentes
+function initCounters(){
+  const maxId = (arr, pref) => {
+    let max = 0;
+    arr.forEach(r => {
+      if(r.id && String(r.id).startsWith(pref)){
+        const n = parseInt(String(r.id).replace(pref,'')) || 0;
+        if(n > max) max = n;
+      }
+    });
+    _counters[pref] = max;
+  };
+  maxId(DB.clientes,   'CLI-');
+  maxId(DB.produccion, 'PROD-');
+  maxId(DB.ventas,     'VTA-');
+  maxId(DB.entregas,   'ENT-');
+  maxId(DB.gastos,     'GTO-');
+  maxId(DB.cobranzas,  'COB-');
+}
 const today = () => new Date().toISOString().split('T')[0];
 const getC  = id => DB.clientes.find(c=>c.id===id)||{nombre:id||'—'};
 
@@ -667,7 +692,7 @@ async function syncAll(){
     document.getElementById('last-sync').textContent =
       'Sync: '+new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
     setSyncStatus('online','Conectado · Google Sheets');
-
+    initCounters(); // actualizar contadores con IDs existentes
     // Re-render página actual
     renderCurrentPage();
   }catch(e){
@@ -728,14 +753,40 @@ function renderPage(page){
 /* ── MODALES ── */
 function openModal(id){
   const t=today();
+  const modal = document.getElementById(id);
+  if(!modal) return;
+  // Limpiar todos los campos de texto y número (excepto fechas)
+  modal.querySelectorAll('input[type=text],input[type=number]').forEach(el => { el.value=''; });
+  // Poner fecha de hoy en campos de fecha
   ['f-pd-fecha','f-v-fecha','f-e-fecha','f-g-fecha','f-co-fecha'].forEach(f=>{const e=document.getElementById(f);if(e)e.value=t;});
+  // Resetear selects
+  modal.querySelectorAll('select').forEach(sel => { sel.selectedIndex=0; });
+  // Poblar selects de clientes
   ['f-v-cli','f-e-cli','f-co-cli'].forEach(sid=>{
     const sel=document.getElementById(sid);
     if(sel) sel.innerHTML='<option value="">Seleccionar...</option>'+DB.clientes.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
   });
-  document.getElementById(id).classList.add('open');
+  // Limpiar total de venta
+  const tot=document.getElementById('f-v-total');
+  if(tot) tot.textContent='S/ 0.00';
+  modal.classList.add('open');
 }
-function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+  // Limpiar todos los inputs y selects del modal
+  const modal = document.getElementById(id);
+  if(modal){
+    modal.querySelectorAll('input[type=text],input[type=number],input[type=date]').forEach(el => {
+      if(el.id && el.id.includes('fecha')) el.value = today();
+      else el.value = '';
+    });
+    // Resetear selects al primer valor
+    modal.querySelectorAll('select').forEach(sel => { sel.selectedIndex = 0; });
+    // Limpiar total de venta
+    const tot = document.getElementById('f-v-total');
+    if(tot) tot.textContent = 'S/ 0.00';
+  }
+}
 document.querySelectorAll('.modal-overlay').forEach(mo=>{mo.addEventListener('click',e=>{if(e.target===mo)mo.classList.remove('open');});});
 
 /* ── GUARDAR FUNCIONES ── */
@@ -754,7 +805,7 @@ async function saveProd(){
     const kg=parseFloat(document.getElementById('f-pd-kg').value)||100;
     const emp=parseFloat(document.getElementById('f-pd-emp').value)||94;
     const rec={
-      id:uid('P'),fecha:document.getElementById('f-pd-fecha').value,
+      id:uid('PROD-'),fecha:document.getElementById('f-pd-fecha').value,
       lote:document.getElementById('f-pd-lote').value||uid('LOT'),
       kgProd:kg,kgEmp:emp,
       kwh:parseFloat(document.getElementById('f-pd-kwh').value)||16.2,
@@ -779,7 +830,7 @@ async function saveVenta(){
     const precio=parseFloat(document.getElementById('f-v-precio').value)||6;
     const pago=document.getElementById('f-v-pago').value;
     const rec={
-      id:uid('V'),fecha:document.getElementById('f-v-fecha').value,
+      id:uid('VTA-'),fecha:document.getElementById('f-v-fecha').value,
       clienteId:document.getElementById('f-v-cli').value,
       canal:document.getElementById('f-v-canal').value,
       producto:document.getElementById('f-v-prod').value,
@@ -791,7 +842,7 @@ async function saveVenta(){
     setTimeout(async()=>{ await syncAll(); renderVentas(); }, 5000);
     if(pago==='Crédito 7 días'){
       const fv=new Date(rec.fecha); fv.setDate(fv.getDate()+7);
-      const cobro={id:uid('CO'),clienteId:rec.clienteId,ventaId:rec.id,
+      const cobro={id:uid('COB-'),clienteId:rec.clienteId,ventaId:rec.id,
         monto:rec.total,fechaVenta:rec.fecha,fechaVenc:fv.toISOString().split('T')[0],pagado:false};
       await apiPost({sheet:'cobranzas',action:'insert',record:cobro});
       DB.cobranzas.push(cobro);
@@ -803,7 +854,7 @@ async function saveVenta(){
 async function saveEntrega(){
   await withSaving('btn-save-ent', async()=>{
     const rec={
-      id:uid('E'),fecha:document.getElementById('f-e-fecha').value,
+      id:uid('ENT-'),fecha:document.getElementById('f-e-fecha').value,
       clienteId:document.getElementById('f-e-cli').value,
       ruta:document.getElementById('f-e-ruta').value,
       bolsas:parseInt(document.getElementById('f-e-bolsas').value)||0,
@@ -813,14 +864,17 @@ async function saveEntrega(){
       estado:document.getElementById('f-e-estado').value
     };
     await apiPost({sheet:'entregas',action:'insert',record:rec});
-    DB.entregas.push(rec); closeModal('modal-entrega'); renderEntregas();
+    DB.entregas.push(rec);
+    closeModal('modal-entrega');
+    renderEntregas();
+    setTimeout(async()=>{ await syncAll(); renderEntregas(); }, 5000);
   });
 }
 
 async function saveCliente(){
   await withSaving('btn-save-cli', async()=>{
     const rec={
-      id:uid('C'),nombre:document.getElementById('f-c-nombre').value,
+      id:uid('CLI-'),nombre:document.getElementById('f-c-nombre').value,
       tipo:document.getElementById('f-c-tipo').value,
       canal:document.getElementById('f-c-canal').value,
       zona:document.getElementById('f-c-zona').value,
@@ -840,14 +894,17 @@ async function saveCliente(){
 async function saveGasto(){
   await withSaving('btn-save-gasto', async()=>{
     const rec={
-      id:uid('G'),fecha:document.getElementById('f-g-fecha').value,
+      id:uid('GTO-'),fecha:document.getElementById('f-g-fecha').value,
       cat:document.getElementById('f-g-cat').value,
       concepto:document.getElementById('f-g-concepto').value,
       monto:parseFloat(document.getElementById('f-g-monto').value)||0,
       comp:document.getElementById('f-g-comp').value
     };
     await apiPost({sheet:'gastos',action:'insert',record:rec});
-    DB.gastos.push(rec); closeModal('modal-gasto'); renderGastos();
+    DB.gastos.push(rec);
+    closeModal('modal-gasto');
+    renderGastos();
+    setTimeout(async()=>{ await syncAll(); renderGastos(); }, 5000);
   });
 }
 
@@ -861,7 +918,9 @@ async function saveCobro(){
     }
     const cl=DB.clientes.find(c=>c.id===clienteId);
     if(cl){ cl.deuda=Math.max(0,cl.deuda-monto); await apiPost({sheet:'clientes',action:'update',id:cl.id,record:{deuda:cl.deuda}}); }
-    closeModal('modal-cobro'); renderCobranzas();
+    closeModal('modal-cobro');
+    renderCobranzas();
+    setTimeout(async()=>{ await syncAll(); renderCobranzas(); }, 5000);
   });
 }
 
