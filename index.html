@@ -666,8 +666,7 @@ async function syncAll(){
     DB.gastos     = gastos;
     DB.cobranzas  = cobros;
 
-    // Si no hay clientes aún, sembrar datos de ejemplo
-    if(DB.clientes.length===0) await seedInitialData();
+    // Sin seed automático — la app arranca limpia con Sheets
 
     document.getElementById('last-sync').textContent =
       'Sync: '+new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
@@ -683,19 +682,7 @@ async function syncAll(){
   syncing=false;
 }
 
-/* ── SEED DATA (primera vez) ── */
-async function seedInitialData(){
-  showLoading('Inicializando datos de ejemplo...');
-  const clientes=[
-    {id:'C001',nombre:'Cevichería El Muelle',tipo:'Cevichería',canal:'HORECA',zona:'Centro Los Olivos',tel:'987654321',dir:'Av. Carlos Izaguirre 450',comprasMes:8,deuda:0,activo:true},
-    {id:'C002',nombre:'Pollería Don Pepe',tipo:'Pollería',canal:'HORECA',zona:'Norte Los Olivos',tel:'976543210',dir:'Av. Las Palmeras 230',comprasMes:6,deuda:120,activo:true},
-    {id:'C003',nombre:'Bodega Sra. Rosa',tipo:'Bodega',canal:'Retail',zona:'Sur Los Olivos',tel:'965432109',dir:'Jr. Los Pinos 55',comprasMes:10,deuda:0,activo:true},
-    {id:'C004',nombre:'Minimarket Sol',tipo:'Minimarket',canal:'Retail',zona:'Centro Los Olivos',tel:'954321098',dir:'Av. Universitaria 1200',comprasMes:5,deuda:60,activo:true},
-    {id:'C005',nombre:'Mercado Unicachi',tipo:'Mercado',canal:'Retail',zona:'Norte Los Olivos',tel:'932109876',dir:'Av. Antúnez de Mayolo 890',comprasMes:15,deuda:0,activo:true},
-  ];
-  await apiPost({sheet:'clientes',action:'seed',rows:clientes});
-  DB.clientes=clientes;
-}
+/* seed eliminado — los datos vienen 100% de Google Sheets */
 
 /* ── LOADING ── */
 function showLoading(msg='Cargando...'){
